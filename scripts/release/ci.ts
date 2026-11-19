@@ -81,7 +81,7 @@ async function checkPackage(pkg: ReleasePackage, core: ReleasePackage) {
   if(packed.name !== pkg.name || packed.version !== pkg.version) throw new Error(`Unexpected package in ${archive}`);
   const consumer = await mkdtemp(join(tmpdir(), "hostframe-package-"));
   try {
-    await Bun.write(join(consumer, "package.json"), JSON.stringify({ name: "hostframe-package-smoke", private: true }));
+    await Bun.write(join(consumer, "package.json"), JSON.stringify({ name: "hostframe-package-smoke", private: true, type: "module" }));
     const packages = [archive];
     const peers = pkg.manifest.peerDependencies as Record<string, string> | undefined;
     const coreRange = peers?.[core.name];
@@ -94,8 +94,8 @@ async function checkPackage(pkg: ReleasePackage, core: ReleasePackage) {
 }
 
 async function checkCoreTypesAndRuntime(core: ReleasePackage, consumer: string) {
-  const runtime = "packed-package.mjs";
-  const types = "packed-package-types.mts";
+  const runtime = "packed-package.ts";
+  const types = "packed-package-types.ts";
   const fixtures = join(core.directory, "test/fixtures");
   await $`cp ${join(fixtures, runtime)} ${join(fixtures, types)} ${consumer}`;
   for(const [executable, expected] of [["node", "Node"], ["bun", "Bun"]]) {

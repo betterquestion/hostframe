@@ -19,11 +19,13 @@ export function installWebGPUGlobals() {
   for(const [name, value] of Object.entries(dawn.globals)) {
     let owner: object | null = globalThis;
     let descriptor: PropertyDescriptor | undefined;
+    
     while(owner) {
       descriptor = Object.getOwnPropertyDescriptor(owner, name);
       if(descriptor) break;
       owner = Object.getPrototypeOf(owner);
     }
+    
     if(descriptor) {
       if(!Object.hasOwn(descriptor, "value") || !Object.is(descriptor.value, value)) {
         throw new TypeError(`Conflicting WebGPU global: ${name}`);

@@ -8,8 +8,7 @@
     "build": "bun run --cwd packages/core build",
     "lint": "oxlint",
     "release": "bun scripts/release/cli.ts",
-    "test": "bun run --cwd packages/core test",
-    "test:cleanup-timeout": "bun run --cwd packages/core test:cleanup-timeout"
+    "test": "bun run --cwd packages/core test"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^6.0.1",

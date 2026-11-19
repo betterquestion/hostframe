@@ -1,5 +1,5 @@
 import { Application } from "../../dist/index.js";
-import { configureWindow, drawFrame, requestDevice } from "../gpu.mjs";
+import { configureWindow, drawFrame, requestDevice } from "../gpu.ts";
 
 const app = new Application();
 const window = app.createWindow();

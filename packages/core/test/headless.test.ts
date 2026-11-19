@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import test from "node:test";
 import { Worker } from "node:worker_threads";
-import { encodeClear, requestDevice } from "./gpu.mjs";
+import { encodeClear, requestDevice } from "./gpu.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -45,7 +45,7 @@ test("the public headless GPU renders and reads back without a display", async (
 });
 
 test("application creation rejects a worker thread", async () => {
-  const worker = new Worker(new URL("./fixtures/worker.mjs", import.meta.url));
+  const worker = new Worker(new URL("./fixtures/worker.ts", import.meta.url));
   const [message, exit] = await Promise.all([once(worker, "message"), once(worker, "exit")]);
   assert.deepEqual(message, ["application rejected"]);
   assert.deepEqual(exit, [0]);

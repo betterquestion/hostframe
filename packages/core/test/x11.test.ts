@@ -4,7 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { Application, Key, PointerButton } from "../dist/index.js";
-import { clearFrame, configureWindow, requestDevice } from "./gpu.mjs";
+import { clearFrame, configureWindow, requestDevice } from "./gpu.ts";
 
 test("two windows isolate native input, geometry, presentation and close", async () => {
   const app = new Application();

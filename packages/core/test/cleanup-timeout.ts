@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { Application } from "../dist/index.js";
-import { configureWindow, drawFrame, requestDevice } from "./gpu.mjs";
+import { configureWindow, drawFrame, requestDevice } from "./gpu.ts";
 
 const operation = process.argv[2];
 assert.ok(["unconfigure", "reconfigure", "window", "application"].includes(operation));

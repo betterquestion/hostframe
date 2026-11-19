@@ -25,8 +25,11 @@ export class Subscriptions<Value> {
     return (value: Value, active?: () => boolean) => {
       for(const entry of entries) {
         if(active && !active()) break;
+        
         if(!this.#entries.has(entry)) continue;
+
         const result: unknown = entry.callback(value);
+        
         if(result !== undefined) {
           void Promise.resolve(result).catch(() => {});
           throw new TypeError(`${this.#event} listeners must return undefined synchronously`);

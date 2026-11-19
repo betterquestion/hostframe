@@ -49,10 +49,12 @@ export class Window {
     this.#onDisposed = onDisposed;
     this.#isApplicationRunning = isApplicationRunning;
     this.#render = this.#emitRender.bind(this);
+    
     controllers.set(this, {
       dispatchInput: () => this.#dispatchInput(),
       dispatchRender: (event, active) => this.#dispatchRender(event, active)
     });
+    
     this.#dispatchInput();
   }
 
@@ -153,6 +155,7 @@ export class Window {
   #dispatchInput() {
     if(this.#native.disposed) return;
     const commands: InputCommand[] = [];
+    
     this.#native.dispatchInput((state, events) => {
       this.#input = freezeInput(state);
       this.#inputCommands = commands;

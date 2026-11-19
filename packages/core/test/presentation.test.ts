@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { Application, installWebGPUGlobals } from "../dist/index.js";
-import { clearFrame, configureWindow, drawFrame, encodeClear, requestDevice } from "./gpu.mjs";
+import { clearFrame, configureWindow, drawFrame, encodeClear, requestDevice } from "./gpu.ts";
 
 const require = createRequire(import.meta.url);
 installWebGPUGlobals();

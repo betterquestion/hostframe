@@ -41,6 +41,7 @@ export class WindowGPUContext {
     this.#native = native;
     this.#isApplicationRunning = isApplicationRunning;
     this.#frameCallback = this.#renderFrame.bind(this);
+    
     controllers.set(this, {
       render: dispatch => this.#render(dispatch),
       release: () => this.#release()
@@ -73,6 +74,7 @@ export class WindowGPUContext {
   getConfiguration(): ConfigurationSnapshot | null {
     this.#requireAlive();
     const configuration = this.#configuration;
+    
     return configuration ? {
       ...configuration,
       viewFormats: [...configuration.viewFormats ?? []],
