@@ -17,13 +17,9 @@ bun run lint
 bun run test
 ```
 
-The build verifies the Dawn archive before extracting its headers and addon. From this checkout, download the pinned package with:
+On the first build, setup downloads the pinned Dawn archive from its public release and caches it in `build/dawn-artifacts`. Setup verifies the SHA-256 before extracting the headers and addon. Later builds reuse the cached archive.
 
-```sh
-gh run download 44542553350 --repo betterquestion/hostframe-dawn --name hostframe-dawn-linux-x64 --dir build/dawn-artifacts/44542553350
-```
-
-Set `HOSTFRAME_DAWN_ARCHIVE` to an absolute or repository-relative path if you saved the same archive elsewhere. If a previous build extracted an older archive, remove `packages/core-native/build/dawn` before rebuilding. Use `bun run build` to build without running the integration tests.
+For an offline first build, set `HOSTFRAME_DAWN_ARCHIVE` to an absolute or repository-relative path to a copy of the pinned archive. If a previous build extracted an older archive, remove `packages/core-native/build/dawn` before rebuilding. Use `bun run build` to build without running the integration tests.
 
 To create a Linux x64 glibc tarball, run `bun pm pack` from `packages/core`. The package includes the compiled TypeScript API, the Hostframe addon, and the pinned Dawn binary with its notices.
 
@@ -58,13 +54,11 @@ The [hostframe-dawn repository](https://github.com/betterquestion/hostframe-dawn
 
 A test-only C++ Node-API addon opens an X11 window directly with Xlib, using Xvfb for the display. It resolves the bridge from the already-loaded binary. In both Node and Bun it verifies ABI negotiation and handle validation, acquires a real Dawn frame texture, and presents a JavaScript-rendered 64-by-64 magenta frame. The test checks every window pixel and confirms clean exit after draining Dawn cleanup before closing X11. A separate compute test verifies readback in both runtimes. [Dawn project README](https://github.com/betterquestion/hostframe-dawn/blob/main/README.md)
 
-The pinned Linux x86-64 artifact comes from the successful GitHub Actions run for commit `5f6b37f`. Its ABI tests cover live devices, devices from another Dawn instance, and synchronous detection immediately after `device.destroy()` in Node and Bun. [Hosted run](https://github.com/betterquestion/hostframe-dawn/actions/runs/44542553350) · [Linux x86-64 workflow artifact](https://github.com/betterquestion/hostframe-dawn/actions/runs/44542553350/artifacts/14538308740)
+The pinned Linux x86-64 release contains the same archive verified by the ABI tests for commit `5f6b37f`. Those tests cover live devices, devices from another Dawn instance, and synchronous detection immediately after `device.destroy()` in Node and Bun. [Linux x86-64 Dawn release](https://github.com/betterquestion/hostframe-dawn/releases/tag/linux-x64-4a5a2fca50314566a37d34b698eb5263e3a83fb4)
 
 ```text
 03102f9ae27864573e0d0b0be5126e25d99a3fc793fb260442567f3a152e4bbc  hostframe-dawn-linux-x64.tar.gz
 ```
-
-The artifact is in a private repository and follows GitHub Actions artifact retention.
 
 ## First Rust milestones
 
