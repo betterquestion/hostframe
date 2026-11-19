@@ -1,12 +1,12 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "ignorePatterns": [
-    "node_modules/**",
-    "coverage/**",
-    "dist/**",
-    "out/**",
-    "build/**",
-    "target/**"
+    "**/node_modules/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/out/**",
+    "**/build/**",
+    "**/target/**"
   ],
   "jsPlugins": [
     {

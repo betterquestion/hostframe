@@ -7,7 +7,7 @@ fn main() {
     let header = include.join("hostframe_dawn/bridge.h");
     assert!(
         header.is_file(),
-        "Run bun scripts/setup.ts to install the pinned Dawn headers"
+        "Run bun run --cwd packages/core-native build from the repository root to install the pinned Dawn headers"
     );
     bindgen::Builder::default()
         .header(header.to_str().unwrap())

@@ -1,11 +1,15 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
-const archive = resolve(process.argv[2] ?? process.env.HOSTFRAME_DAWN_ARCHIVE ?? "build/dawn-artifacts/44542553350/hostframe-dawn-linux-x64.tar.gz");
+const root = fileURLToPath(new URL("../../../", import.meta.url));
+const archive = process.argv[2]
+  ? resolve(process.argv[2])
+  : resolve(root, process.env.HOSTFRAME_DAWN_ARCHIVE ?? "build/dawn-artifacts/44542553350/hostframe-dawn-linux-x64.tar.gz");
 const expected = "03102f9ae27864573e0d0b0be5126e25d99a3fc793fb260442567f3a152e4bbc";
-const destination = resolve("build/dawn");
+const destination = fileURLToPath(new URL("../build/dawn", import.meta.url));
 
 installDawn();
 

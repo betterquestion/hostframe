@@ -3,13 +3,24 @@
   "configVersion": 1,
   "workspaces": {
     "": {
+      "name": "hostframe-workspace",
+      "devDependencies": {
+        "@stylistic/eslint-plugin": "^6.0.1",
+        "oxlint": "^1.94.0",
+      },
+    },
+    "packages/core": {
       "name": "hostframe",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^26.6.6",
+        "typescript": "6",
+      },
+    },
+    "packages/core-native": {
+      "name": "@hostframe/core-native",
       "devDependencies": {
         "@napi-rs/cli": "^3.10.12",
-        "@stylistic/eslint-plugin": "^6.0.1",
-        "@types/node": "^26.6.6",
-        "oxlint": "^1.94.0",
-        "typescript": "6",
       },
     },
   },
@@ -37,6 +48,8 @@
     "@eslint/object-schema": ["@eslint/object-schema@3.0.5", "", {}, "sha512-vqTaUEgxzm+YDSdElad6PiRoX4t8VGDjCtt05zn4nU810UIx/uNEV7/lZJ6KwFThKZOzOxzXy48da+No7HZaMw=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.3", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q=="],
+
+    "@hostframe/core-native": ["@hostframe/core-native@workspace:packages/core-native"],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 
@@ -345,6 +358,8 @@
     "hashery": ["hashery@1.5.1", "", { "dependencies": { "hookified": "^1.15.0" } }, "sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ=="],
 
     "hookified": ["hookified@1.15.1", "", {}, "sha512-MvG/clsADq1GPM2KGo2nyfaWVyn9naPiXrqIe4jYjXNZQt238kWyOGrsyc/DmRAQ+Re6yeo6yX/yoNCG5KAEVg=="],
+
+    "hostframe": ["hostframe@workspace:packages/core"],
 
     "iconv-lite": ["iconv-lite@0.7.3", "", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ=="],
 

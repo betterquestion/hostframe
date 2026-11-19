@@ -1,28 +1,22 @@
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 
 const driver = process.env.VK_DRIVER_FILES ?? process.env.VK_ICD_FILENAMES ?? findSoftwareDriver();
 const env = { ...process.env, VK_DRIVER_FILES: driver };
 const runtimes = ["node", process.execPath];
-const mode = process.argv[2];
 const staging = mkdtempSync(join(tmpdir(), "hostframe-tests-"));
 
 try {
-  if(mode === "--materials") {
-    await testMaterials();
-  } else {
-    if(mode !== "--cleanup-timeout") await testCore();
-    await testCleanupTimeouts();
-  }
+  if(process.argv[2] !== "--cleanup-timeout") await testCore();
+  await testCleanupTimeouts();
 } finally {
   rmSync(staging, { recursive: true, force: true });
 }
 
 async function testCore() {
   const compiler = process.env.CC ?? "cc";
-  const dawnHeaders = resolve("build/dawn/hostframe-dawn-linux-x64/include");
+  const dawnHeaders = resolve("../core-native/build/dawn/hostframe-dawn-linux-x64/include");
   await Promise.all([
     run([compiler, "-shared", "-fPIC", "-I", dawnHeaders, "test/fixtures/short-bridge.c", "-o", join(staging, "short-bridge.node")], env),
     run([compiler, "test/fixtures/x11-events.c", "-o", join(staging, "x11-events"), "-lX11"], env)
@@ -45,7 +39,7 @@ async function testCleanupTimeouts() {
   cpSync("dist", join(staging, "dist"), { recursive: true });
   cpSync("package.json", join(staging, "package.json"));
   const output = join(staging, "build/native");
-  await run(["bun", "x", "napi", "build", "--target", "x86_64-unknown-linux-gnu", "--platform", "--no-js",
+  await run(["bun", "run", "--cwd", "../core-native", "build:addon",
     "--features", "test-cleanup-timeout", "--output-dir", output], env);
   symlinkSync(resolve("build/dawn"), join(staging, "build/dawn"));
   const tests = join(staging, "test");
@@ -59,17 +53,6 @@ async function testCleanupTimeouts() {
         await run(["timeout", "40s", runtime, "--expose-gc", join(tests, "cleanup-timeout.mjs"), operation], display);
       }
     }, { HOSTFRAME_TEST_STALL_CLEANUP: "1" });
-  }
-}
-
-async function testMaterials() {
-  const checkout = resolve(process.argv[3] ?? "../ts-dawn");
-  cpSync(join(checkout, "examples/three"), join(staging, "examples/three"), { recursive: true });
-  cpSync(join(checkout, "examples/shared"), join(staging, "examples/shared"), { recursive: true });
-  symlinkSync(join(checkout, "node_modules"), join(staging, "node_modules"));
-  writeFileSync(join(staging, "index.ts"), `export * from ${JSON.stringify(pathToFileURL(resolve("dist/index.js")).href)};\n`);
-  for(const runtime of runtimes) {
-    await withDisplay(display => run(["timeout", "40s", runtime, join(staging, "examples/three/materials.ts"), "--frames=12"], display));
   }
 }
 

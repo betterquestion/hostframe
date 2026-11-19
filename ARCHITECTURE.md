@@ -1,6 +1,6 @@
 # Hostframe Rust pilot architecture
 
-The pilot targets Linux x86-64 with X11 and Vulkan. Rust owns the native window and presentation lifecycle. The separately built `hostframe-dawn` addon supplies the JavaScript WebGPU implementation and a versioned C bridge. The original Hostframe is a reference for observable behavior and integration tests. An existing Three.js demo will be the first public API compatibility target. [Pilot README](README.md) · [Design discussion](https://github.com/jacl38/hostframe/discussions/46)
+The pilot targets Linux x86-64 with X11 and Vulkan. Rust owns the native window and presentation lifecycle. The separately built `hostframe-dawn` addon supplies the JavaScript WebGPU implementation and a versioned C bridge. The original Hostframe is a reference for observable behavior and integration tests. [Pilot README](README.md) · [Design discussion](https://github.com/jacl38/hostframe/discussions/46)
 
 ## Windowing and input
 
@@ -16,10 +16,10 @@ Rust owns the surface and frame lifetime. It calls Dawn's `check_device` before 
 
 ## TypeScript interface
 
-Use `napi-rs` to build `hostframe.node` and generate declarations for its native exports. A small TypeScript façade defines the public application, window, and canvas-like context API, schedules turns, and dispatches callbacks. Rust manages native resources and frame state. Dawn supplies the JavaScript WebGPU objects that applications and renderers use directly. Exercise the same native addon binary in Node and Bun from the first milestone. [NAPI-RS declaration generation](https://napi.rs/docs/cli/programmatic-api) · [Bun Node-API support](https://bun.com/docs/runtime/node-api)
+In `packages/core-native`, `napi-rs` builds the Hostframe addon and generates declarations for its native exports. The `packages/core` build stages the addon, declarations, and Dawn runtime files for the public `hostframe` package. The TypeScript API loads the binaries relative to itself, defines the application, window, and canvas-like context, schedules turns, and dispatches callbacks. Dawn supplies the JavaScript WebGPU objects that applications and renderers use directly. [NAPI-RS declaration generation](https://napi.rs/docs/cli/programmatic-api) · [Bun Node-API support](https://bun.com/docs/runtime/node-api)
 
 ## Validation milestones
 
 1. Pin the Linux Dawn artifact by SHA-256. In Node and Bun, load both addons, negotiate bridge ABI v1, and acquire and release handles from genuine Dawn `GPU` and `GPUDevice` objects.
 2. Open a GLFW window under Xvfb, clear an acquired texture from JavaScript, and verify the presented pixels. Check that a JavaScript timer runs while the window is open, then verify cleanup before closing the display and confirm clean process exit in both runtimes.
-3. Run an existing Hostframe Three.js demo in Node and Bun. Exercise rendering, resizing, closing, clean exit, and the forced cleanup timeout. Use the [original Hostframe tests](https://github.com/jacl38/hostframe/tree/master/packages/native/test) as the behavior baseline.
+3. Exercise rendering, resizing, closing, clean exit, and the forced cleanup timeout in Node and Bun. Use the [original Hostframe tests](https://github.com/jacl38/hostframe/tree/master/packages/native/test) as the behavior baseline.

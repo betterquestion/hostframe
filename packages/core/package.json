@@ -1,0 +1,30 @@
+{
+  "name": "hostframe",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./globals": "./dist/globals.js"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/",
+    "build/native/",
+    "build/dawn/",
+    "build/licenses/"
+  ],
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "libc": ["glibc"],
+  "scripts": {
+    "build": "bun run --cwd ../core-native build && bun scripts/stage-native.ts && tsc",
+    "prepack": "bun run build",
+    "test": "bun run build && bun scripts/test.ts",
+    "test:cleanup-timeout": "bun run build && bun scripts/test.ts --cleanup-timeout"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "6"
+  }
+}

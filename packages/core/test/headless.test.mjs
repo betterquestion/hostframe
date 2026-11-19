@@ -19,7 +19,8 @@ test("the loader rejects an unloaded bridge and a short ABI v1 table", () => {
 test("the public headless GPU renders and reads back without a display", async () => {
   assert.equal(process.env.DISPLAY || "", "");
   assert.equal(process.env.WAYLAND_DISPLAY || "", "");
-  const { gpu, GPUTextureUsage, GPUBufferUsage, GPUMapMode } = await import("../dist/globals.js");
+  const { gpu, GPUTextureUsage, GPUBufferUsage, GPUMapMode } = await import("hostframe/globals");
+  assert.equal(gpu, (await import("hostframe")).gpu);
   assert.equal(Object.hasOwn(globalThis, "GPUTextureUsage"), false);
   const device = await requestDevice(gpu);
   try {

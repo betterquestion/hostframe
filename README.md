@@ -1,6 +1,11 @@
 # Hostframe Rust pilot
 
-This directory is the starting point for the Rust Hostframe pilot. The [original Hostframe repository](https://github.com/jacl38/hostframe) is the reference for its public TypeScript API, native behavior, and integration tests. [Hostframe discussion #46](https://github.com/jacl38/hostframe/discussions/46) records the design decision behind the split.
+This Bun workspace is the starting point for the Rust Hostframe pilot. The [original Hostframe repository](https://github.com/jacl38/hostframe) is the reference for its public TypeScript API, native behavior, and integration tests. [Hostframe discussion #46](https://github.com/jacl38/hostframe/discussions/46) records the design decision behind the split.
+
+- [`packages/core`](packages/core) publishes as `hostframe` and owns the TypeScript API, native binary loading, and core integration tests.
+- [`packages/core-native`](packages/core-native) owns the private Rust crate and Node-API build. It consumes the pinned artifact from [`hostframe-dawn`](https://github.com/jacl38/hostframe-dawn), which has its own dependencies, build, and release pipeline.
+
+Future renderer adapters belong in their own workspace packages, with `hostframe` and the renderer as peer dependencies. Each adapter owns its examples and integration tests.
 
 ## Build and test the pilot
 
@@ -18,19 +23,19 @@ The build verifies the Dawn archive before extracting its headers and addon. Fro
 gh run download 44542553350 --repo jacl38/hostframe-dawn --name hostframe-dawn-linux-x64 --dir build/dawn-artifacts/44542553350
 ```
 
-Set `HOSTFRAME_DAWN_ARCHIVE` if you saved the same archive elsewhere. If a previous build extracted the old archive, remove its generated `build/dawn` directory before rebuilding. Use `bun run build` to build without running the integration test.
+Set `HOSTFRAME_DAWN_ARCHIVE` to an absolute or repository-relative path if you saved the same archive elsewhere. If a previous build extracted an older archive, remove `packages/core-native/build/dawn` before rebuilding. Use `bun run build` to build without running the integration tests.
+
+To create a Linux x64 glibc tarball, run `bun pm pack` from `packages/core`. The package includes the compiled TypeScript API, the Hostframe addon, and the pinned Dawn binary with its notices.
 
 The TypeScript entry point exposes the original Hostframe application, window and WebGPU context methods. Use `app.run(options)` for scheduled rendering and fixed updates, or pair `app.pollEvents()` with `context.draw()` for a caller-owned loop. Windows report named input and lifecycle events, immutable metrics and held-input snapshots, and cancelable native close requests. Call `app.dispose()` before destroying caller-owned GPU devices. [Application loop](https://github.com/jacl38/hostframe/blob/master/docs/application-loop.md) · [Window input](https://github.com/jacl38/hostframe/blob/master/docs/window-input.md) · [Window lifecycle](https://github.com/jacl38/hostframe/blob/master/docs/window-lifecycle.md) · [WebGPU context](https://github.com/jacl38/hostframe/blob/master/docs/window-context.md)
 
 The core suite runs in Node and Bun. It uses a fake clock for scheduling and plain WebGPU for readback, pixel checks, and frame lifetime. The X11 tests use Xvfb and a small fixture for window-manager events. The forced timeout checks build a separate test-only addon. Run `bun run test:cleanup-timeout` to run only those checks.
 
-The optional `bun run test:materials` migration check uses the original examples and their dependencies from the sibling `ts-dawn` checkout. Pass the checkout path as an argument to use a different location.
-
 The pinned Dawn bridge validates device ownership and loss synchronously before Hostframe replaces a canvas configuration. A device from another Dawn instance or a device destroyed in the same JavaScript turn leaves the existing configuration usable.
 
 ## Original Hostframe
 
-Hostframe lets TypeScript applications render into native desktop windows on Node and Bun. The JavaScript API exposes an application, windows, input and render events, and a canvas-like WebGPU context. Renderers such as Three.js use Dawn's JavaScript WebGPU objects to create resources, encode commands, and submit work. Hostframe acquires the window's current texture before the render callback and presents it afterward. [Original README](https://github.com/jacl38/hostframe/blob/master/README.md)
+Hostframe lets TypeScript applications render into native desktop windows on Node and Bun. The JavaScript API exposes an application, windows, input and render events, and a canvas-like WebGPU context. Applications use Dawn's JavaScript WebGPU objects to create resources, encode commands, and submit work. Hostframe acquires the window's current texture before the render callback and presents it afterward. [Original README](https://github.com/jacl38/hostframe/blob/master/README.md)
 
 The original `hostframe.node` addon puts the C++ pieces in one binary. Nobind exposes the application and window classes to JavaScript. GLFW handles windows and input, and Hostframe's presentation code creates and configures Dawn surfaces, wraps acquired frame textures, and coordinates shutdown. Its CMake build compiles Dawn's Node bindings alongside Hostframe's C++ and links the matching prebuilt Dawn engine. [Node exports](https://github.com/jacl38/hostframe/blob/master/packages/native/src/module.cpp) · [Presentation code](https://github.com/jacl38/hostframe/blob/master/packages/native/src/presentation.cpp) · [Native build](https://github.com/jacl38/hostframe/blob/master/packages/native/CMakeLists.txt)
 
@@ -63,8 +68,7 @@ The artifact is in a private repository and follows GitHub Actions artifact rete
 
 ## First Rust milestones
 
-The Linux core suite verifies bridge negotiation, pixel output, resize, input delivery, frame recovery, and cleanup in Node and Bun. The optional materials check exercises the existing Three.js scene.
+The Linux core suite verifies bridge negotiation, pixel output, resize, input delivery, frame recovery, and cleanup in Node and Bun.
 
 1. Pin the Linux artifact by SHA-256. Build a small Rust Node-API addon that resolves the table from the already-loaded `dawn.node`, negotiates ABI v1, and acquires and releases instance and device handles in Node and Bun.
 2. Port the X11 presentation fixture to Rust. Use `WGPUSurfaceSourceXlibWindow` with a window on Xvfb, clear the acquired texture from JavaScript, check the presented pixels, and verify cleanup before closing the display. [Reference C++ fixture](https://github.com/jacl38/hostframe-dawn/blob/main/test/x11-surface.cpp) · [JavaScript test](https://github.com/jacl38/hostframe-dawn/blob/main/test/surface.cjs)
-3. Run an existing Hostframe Three.js demo in both runtimes. Exercise render, resize, close, clean exit, and the cleanup timeout. Use the original Hostframe behavior and tests as the baseline before expanding the pilot to other platforms.
