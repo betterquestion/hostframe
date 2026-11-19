@@ -11,7 +11,7 @@
     },
     "packages/core": {
       "name": "hostframe",
-      "version": "0.1.0-alpha.2",
+      "version": "0.1.0",
       "devDependencies": {
         "@types/node": "^26.6.6",
         "@webgpu/types": "0.1.74",
