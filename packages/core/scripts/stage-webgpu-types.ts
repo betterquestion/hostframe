@@ -8,17 +8,21 @@ const source = ts.createSourceFile("webgpu.d.ts", declarations, ts.ScriptTarget.
 const browserInterfaces = new Set(["HTMLCanvasElement", "HTMLVideoElement", "OffscreenCanvas", "Navigator", "WorkerNavigator"]);
 
 const scoped = source.statements.flatMap(statement => {
-  if(ts.isInterfaceDeclaration(statement) && browserInterfaces.has(statement.name.text)) return [];
-  
+  if(ts.isInterfaceDeclaration(statement) && browserInterfaces.has(statement.name.text)) {
+    return [];
+  }
+
   if(!ts.isInterfaceDeclaration(statement) && !ts.isTypeAliasDeclaration(statement) && !ts.isVariableStatement(statement)) {
     throw new Error(`Unexpected declaration in @webgpu/types: ${statement.getText(source)}`);
   }
-  
+
   const start = statement.getStart(source);
+
   return [declarations.slice(statement.getFullStart(), start) + "export " + statement.getText(source)];
 }).join("");
 
 const destination = new URL("../build/types/", import.meta.url);
+
 mkdirSync(destination, { recursive: true });
 
 const platform = readFileSync(new URL("./webgpu-platform.d.ts", import.meta.url), "utf8");

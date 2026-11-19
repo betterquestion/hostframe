@@ -4,6 +4,7 @@ import { Application } from "../dist/index.js";
 import { configureWindow, drawFrame, requestDevice } from "./gpu.ts";
 
 const operation = process.argv[2];
+
 assert.ok(["unconfigure", "reconfigure", "window", "application"].includes(operation));
 
 const app = new Application();
@@ -13,8 +14,10 @@ const format = app.gpu.getPreferredCanvasFormat();
 const replacement = await requestDevice(context);
 const timeout = /GPU cleanup timed out; device was destroyed/;
 const survivingContext = operation === "window" ? configureWindow(app.createWindow(), replacement, format) : undefined;
+
 try {
   const expired = await exerciseTimeout();
+
   switch(operation) {
     case "reconfigure":
       await checkCollected(expired);
@@ -27,13 +30,16 @@ try {
       assert.throws(() => context.getConfiguration(), /disposed/);
       assert.throws(() => app.createWindow(), /disposed/);
       const next = new Application();
+
       try {
         drawFrame(configureWindow(next.createWindow(), replacement, format), replacement);
       } finally {
         next.dispose();
       }
+
       break;
     }
+
     case "unconfigure":
       assert.equal(context.getConfiguration(), null);
       assert.throws(() => window.presentMode, /not configured/);
@@ -50,23 +56,32 @@ try {
     replacement.destroy();
   }
 }
+
 console.log(`Forced cleanup during ${operation} passed`);
 
 async function exerciseTimeout() {
   const device = await requestDevice(context);
   const reference = new WeakRef(device);
+
   context.configure({ device, format });
   drawFrame(context, device);
   if(operation === "reconfigure" || operation === "application") {
     const sibling = app.createWindow();
     const siblingContext = configureWindow(sibling, device, format);
+
     drawFrame(siblingContext, device);
     // A retained callback would also keep this device alive after disposal.
     if(operation === "application") {
-      sibling.on("render", () => { void device.label; });
-      app.on("fixedUpdate", () => { void device.label; });
+      sibling.on("render", () => {
+        void device.label;
+      });
+      app.on("fixedUpdate", () => {
+        void device.label;
+      });
     }
+
     const cleanup = operation === "reconfigure" ? () => context.configure({ device: replacement, format }) : () => app.dispose();
+
     assert.throws(cleanup, timeout);
     assert.equal((await device.lost).reason, "destroyed");
     if(operation === "reconfigure") {
@@ -80,6 +95,7 @@ async function exerciseTimeout() {
   } else {
     assert.throws(() => window.dispose(), timeout);
   }
+
   return reference;
 }
 
@@ -88,8 +104,12 @@ async function checkCollected(reference) {
   for(let attempt = 0; attempt < 100; attempt++) {
     globalThis.gc();
     await delay(10);
-    if(!reference.deref()) return;
+    if(!reference.deref()) {
+      return;
+    }
+
     await delay(0);
   }
+
   assert.fail("Cleanup must release retained GPUDevice references");
 }

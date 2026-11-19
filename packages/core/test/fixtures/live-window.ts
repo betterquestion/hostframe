@@ -5,6 +5,7 @@ const app = new Application();
 const window = app.createWindow();
 const device = await requestDevice(window.getContext("webgpu"));
 const context = configureWindow(window, device, app.gpu.getPreferredCanvasFormat());
+
 drawFrame(context, device);
 await device.queue.onSubmittedWorkDone();
 

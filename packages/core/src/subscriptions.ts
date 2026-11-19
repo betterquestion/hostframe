@@ -9,29 +9,43 @@ export class Subscriptions<Value> {
     this.#owner = owner;
   }
 
-  get size() { return this.#entries.size; }
+  get size() {
+    return this.#entries.size;
+  }
 
   add(callback: (value: Value) => undefined) {
-    if(typeof callback !== "function") throw new TypeError(`Expected ${this.#owner} listener`);
+    if(typeof callback !== "function") {
+      throw new TypeError(`Expected ${this.#owner} listener`);
+    }
+
     // Entries, rather than callbacks, make duplicate registrations independent.
     const entry = { callback };
+
     this.#entries.add(entry);
-    return () => { this.#entries.delete(entry); };
+
+    return () => {
+      this.#entries.delete(entry);
+    };
   }
 
   snapshot() {
     const entries = Array.from(this.#entries);
+
     // The owner can retain this dispatch function for an entire input batch.
     return (value: Value, active?: () => boolean) => {
       for(const entry of entries) {
-        if(active && !active()) break;
-        
-        if(!this.#entries.has(entry)) continue;
+        if(active && !active()) {
+          break;
+        }
+
+        if(!this.#entries.has(entry)) {
+          continue;
+        }
 
         const result: unknown = entry.callback(value);
-        
+
         if(result !== undefined) {
-          void Promise.resolve(result).catch(() => {});
+          void Promise.resolve(result).catch(() => { });
           throw new TypeError(`${this.#event} listeners must return undefined synchronously`);
         }
       }

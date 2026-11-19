@@ -16,13 +16,18 @@ const controllers = new WeakMap<WindowGPUContext, WindowGPUContextController>();
 /** @internal Connects a Window-owned controller without exposing scheduling operations publicly. */
 export function createWindowGPUContext(native: NativeWindow, isApplicationRunning: () => boolean) {
   const context = new WindowGPUContext(native, isApplicationRunning);
+
   return { context, controller: controllers.get(context)! };
 }
 
 /** @internal Returns the Window-owned controller for integration instrumentation. */
 export function getWindowGPUContextController(context: WindowGPUContext) {
   const controller = controllers.get(context);
-  if(!controller) throw new Error("WindowGPUContext has no controller");
+
+  if(!controller) {
+    throw new Error("WindowGPUContext has no controller");
+  }
+
   return controller;
 }
 
@@ -41,7 +46,7 @@ export class WindowGPUContext {
     this.#native = native;
     this.#isApplicationRunning = isApplicationRunning;
     this.#frameCallback = this.#renderFrame.bind(this);
-    
+
     controllers.set(this, {
       render: dispatch => this.#render(dispatch),
       release: () => this.#release()
@@ -59,7 +64,9 @@ export class WindowGPUContext {
     } finally {
       // Cleanup timeouts release the native configuration before throwing;
       // validation/reentrancy failures leave the previous configuration intact.
-      if(!this.#native.configured) this.#configuration = null;
+      if(!this.#native.configured) {
+        this.#configuration = null;
+      }
     }
   }
 
@@ -67,14 +74,16 @@ export class WindowGPUContext {
     try {
       this.#native.unconfigure();
     } finally {
-      if(!this.#native.configured) this.#configuration = null;
+      if(!this.#native.configured) {
+        this.#configuration = null;
+      }
     }
   }
 
   getConfiguration(): ConfigurationSnapshot | null {
     this.#requireAlive();
     const configuration = this.#configuration;
-    
+
     return configuration ? {
       ...configuration,
       viewFormats: [...configuration.viewFormats ?? []],
@@ -84,7 +93,10 @@ export class WindowGPUContext {
 
   getCurrentTexture(): GPUTexture {
     this.#requireAlive();
-    if(!this.#texture) throw new Error("getCurrentTexture() requires an active window render or manual draw callback");
+    if(!this.#texture) {
+      throw new Error("getCurrentTexture() requires an active window render or manual draw callback");
+    }
+
     return this.#texture;
   }
 
@@ -93,18 +105,28 @@ export class WindowGPUContext {
    * Returns false when the context is unconfigured or no drawable texture is available.
    */
   draw(dispatch: () => undefined) {
-    if(this.#isApplicationRunning()) throw new Error("Cannot draw while Application.run() is active");
+    if(this.#isApplicationRunning()) {
+      throw new Error("Cannot draw while Application.run() is active");
+    }
+
     return this.#render(dispatch);
   }
 
   #render(dispatch: () => undefined) {
     this.#requireAlive();
-    if(!this.#configuration) return false;
-    if(this.#dispatch) throw new Error("Window is already rendering");
+    if(!this.#configuration) {
+      return false;
+    }
+
+    if(this.#dispatch) {
+      throw new Error("Window is already rendering");
+    }
+
     this.#dispatch = dispatch;
     this.#didDraw = false;
     try {
       this.#native.renderFrame(this.#frameCallback);
+
       return this.#didDraw;
     } finally {
       this.#dispatch = undefined;
@@ -129,6 +151,8 @@ export class WindowGPUContext {
   }
 
   #requireAlive() {
-    if(this.#native.disposed) throw new Error("Window is disposed");
+    if(this.#native.disposed) {
+      throw new Error("Window is disposed");
+    }
   }
 }

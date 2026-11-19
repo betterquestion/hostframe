@@ -19,13 +19,18 @@ const controllers = new WeakMap<Window, WindowController>();
 /** @internal Creates a public window with its application-owned controller. */
 export function createWindow(native: NativeWindow, onDisposed: (window: Window) => void, isApplicationRunning: () => boolean) {
   const window = new Window(native, onDisposed, isApplicationRunning);
+
   return { window, controller: controllers.get(window)! };
 }
 
 /** @internal Returns the application-owned controller for integration tests and Application. */
 export function getWindowController(window: Window) {
   const controller = controllers.get(window);
-  if(!controller) throw new Error("Window has no controller");
+
+  if(!controller) {
+    throw new Error("Window has no controller");
+  }
+
   return controller;
 }
 
@@ -49,65 +54,103 @@ export class Window {
     this.#onDisposed = onDisposed;
     this.#isApplicationRunning = isApplicationRunning;
     this.#render = this.#emitRender.bind(this);
-    
+
     controllers.set(this, {
       dispatchInput: () => this.#dispatchInput(),
       dispatchRender: (event, active) => this.#dispatchRender(event, active)
     });
-    
+
     this.#dispatchInput();
   }
 
-  get presentMode() { return this.#native.presentMode; }
-  get shouldClose() { return this.#native.shouldClose; }
+  get presentMode() {
+    return this.#native.presentMode;
+  }
+  get shouldClose() {
+    return this.#native.shouldClose;
+  }
 
   /** Immutable polled state, also updated by capture/close commands. Safe in input/render callbacks. */
   get input() {
     this.#requireAlive();
+
     return this.#input;
   }
 
   /** Atomic client screen units, framebuffer pixels, and platform content scale from the last batch. */
-  get metrics() { return this.input.metrics; }
+  get metrics() {
+    return this.input.metrics;
+  }
 
   /** Polled native content position (screen units), visibility, and minimization. */
-  get status() { return this.input.status; }
+  get status() {
+    return this.input.status;
+  }
 
   /** Runtime controls are immediate, guarded native mutations. Observe results on the next poll. */
-  setTitle(title: string) { this.#native.setTitle(title); }
-  setSize(width: number, height: number) { this.#native.setSize(width, height); }
-  setPosition(x: number, y: number) { this.#native.setPosition(x, y); }
-  setVisible(visible: boolean) { this.#native.setVisible(visible); }
+  setTitle(title: string) {
+    this.#native.setTitle(title);
+  }
+  setSize(width: number, height: number) {
+    this.#native.setSize(width, height);
+  }
+  setPosition(x: number, y: number) {
+    this.#native.setPosition(x, y);
+  }
+  setVisible(visible: boolean) {
+    this.#native.setVisible(visible);
+  }
 
   /** Continuous pixel coordinates; undefined while non-drawable. Does not clamp or round. */
   toFramebuffer(x: number, y: number) {
     const metrics = this.metrics;
-    if(!Number.isFinite(x) || !Number.isFinite(y)) throw new TypeError("Coordinates must be finite");
-    if(!metrics.drawable) return undefined;
+
+    if(!Number.isFinite(x) || !Number.isFinite(y)) {
+      throw new TypeError("Coordinates must be finite");
+    }
+
+    if(!metrics.drawable) {
+      return undefined;
+    }
+
     return { x: x * metrics.framebufferWidth / metrics.width, y: y * metrics.framebufferHeight / metrics.height };
   }
 
-  isKeyDown(key: number) { return this.input.keys.includes(key); }
-  isScancodeDown(scancode: number) { return this.input.scancodes.includes(scancode); }
-  isButtonDown(button: number) { return this.input.buttons.includes(button); }
+  isKeyDown(key: number) {
+    return this.input.keys.includes(key);
+  }
+  isScancodeDown(scancode: number) {
+    return this.input.scancodes.includes(scancode);
+  }
+  isButtonDown(button: number) {
+    return this.input.buttons.includes(button);
+  }
 
   on<Event extends keyof WindowEvents>(event: Event, listener: (event: WindowEvents[Event]) => undefined) {
     this.#requireAlive();
     if(event === "render") {
       return this.#renderListeners.add(listener as (event: RenderEvent) => undefined);
     }
+
     return this.#listeners.on(event as keyof WindowInputEvents, listener as (event: WindowInputEvents[keyof WindowInputEvents]) => undefined);
   }
 
   getContext(type: "webgpu") {
     this.#requireAlive();
-    if(type !== "webgpu") throw new TypeError("Only the webgpu context is supported");
+    if(type !== "webgpu") {
+      throw new TypeError("Only the webgpu context is supported");
+    }
+
     this.#context ??= createWindowGPUContext(this.#native, this.#isApplicationRunning);
+
     return this.#context.context;
   }
 
   #dispatchRender(event: RenderEvent, active: () => boolean) {
-    if(this.#native.disposed || this.#native.shouldClose || !this.#renderListeners.size) return;
+    if(this.#native.disposed || this.#native.shouldClose || !this.#renderListeners.size) {
+      return;
+    }
+
     this.#renderEvent = event;
     this.#active = active;
     this.#context?.controller.render(this.#render);
@@ -115,16 +158,26 @@ export class Window {
 
   #emitRender() {
     this.#renderListeners.snapshot()(this.#renderEvent, this.#active);
+
     return undefined;
   }
 
   /** Hidden virtual pointer motion. In input listeners, applied after the successful batch. */
   setPointerCapture(captured: boolean, rawMotion = false) {
     if(this.#inputCommands) {
-      if(typeof captured !== "boolean" || typeof rawMotion !== "boolean") throw new TypeError("Pointer capture arguments must be booleans");
-      this.#inputCommands.push({ type: "capture", captured, rawMotion });
+      if(typeof captured !== "boolean" || typeof rawMotion !== "boolean") {
+        throw new TypeError("Pointer capture arguments must be booleans");
+      }
+
+      this.#inputCommands.push({
+        type: "capture",
+        captured,
+        rawMotion
+      });
+
       return;
     }
+
     this.#input = freezeInput({ ...this.#native.setPointerCapture(captured, rawMotion), metrics: this.#input.metrics });
   }
 
@@ -132,8 +185,10 @@ export class Window {
   requestClose() {
     if(this.#inputCommands) {
       this.#inputCommands.push({ type: "close" });
+
       return;
     }
+
     this.#input = freezeInput({ ...this.#native.requestClose(), metrics: this.#input.metrics });
   }
 
@@ -153,14 +208,19 @@ export class Window {
   }
 
   #dispatchInput() {
-    if(this.#native.disposed) return;
+    if(this.#native.disposed) {
+      return;
+    }
+
     const commands: InputCommand[] = [];
-    
+
     this.#native.dispatchInput((state, events) => {
       this.#input = freezeInput(state);
       this.#inputCommands = commands;
       try {
-        this.#listeners.dispatch(events, () => { commands.push({ type: "close" }); });
+        this.#listeners.dispatch(events, () => {
+          commands.push({ type: "close" });
+        });
       } finally {
         this.#inputCommands = undefined;
       }
@@ -174,11 +234,14 @@ export class Window {
         this.requestClose();
         break;
       }
+
       this.setPointerCapture(command.captured, command.rawMotion);
     }
   }
 
   #requireAlive() {
-    if(this.#native.disposed) throw new Error("Window is disposed");
+    if(this.#native.disposed) {
+      throw new Error("Window is disposed");
+    }
   }
 }

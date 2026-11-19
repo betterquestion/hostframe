@@ -11,13 +11,25 @@ test("two windows isolate native input, geometry, presentation and close", async
   let device;
   let running;
   let failure;
+
   try {
-    const first = app.createWindow({ title: "Hostframe first", width: 64, height: 64, resizable: true });
-    const second = app.createWindow({ title: "Hostframe second", width: 64, height: 64 });
+    const first = app.createWindow({
+      title: "Hostframe first",
+      width: 64,
+      height: 64,
+      resizable: true
+    });
+    const second = app.createWindow({
+      title: "Hostframe second",
+      width: 64,
+      height: 64
+    });
+
     first.setPosition(20, 40);
     second.setPosition(220, 40);
     const firstId = windowId("Hostframe first");
     const secondId = windowId("Hostframe second");
+
     assert.notEqual(firstId, secondId);
 
     device = await requestDevice(first.getContext("webgpu"));
@@ -33,8 +45,10 @@ test("two windows isolate native input, geometry, presentation and close", async
     const firstText = [];
     const secondKeys = [];
     const secondPointer = [];
+
     first.on("render", () => {
       const texture = firstContext.getCurrentTexture();
+
       lastSize = [texture.width, texture.height];
       clearFrame(device, texture);
       firstFrames++;
@@ -51,14 +65,24 @@ test("two windows isolate native input, geometry, presentation and close", async
       assert.deepEqual(event.metrics, first.metrics);
       metrics = event.metrics;
     });
-    first.on("key", event => { firstKeys.push(event); });
-    first.on("text", event => { firstText.push(event); });
-    second.on("key", event => { secondKeys.push(event); });
+    first.on("key", event => {
+      firstKeys.push(event);
+    });
+    first.on("text", event => {
+      firstText.push(event);
+    });
+    second.on("key", event => {
+      secondKeys.push(event);
+    });
     for(const type of ["pointerMove", "pointerButton", "scroll"]) {
-      second.on(type, event => { secondPointer.push(event); });
+      second.on(type, event => {
+        secondPointer.push(event);
+      });
     }
 
-    running = app.run({ updateHz: 120 }).catch(error => { failure = { error }; });
+    running = app.run({ updateHz: 120 }).catch(error => {
+      failure = { error };
+    });
     await waitFor(() => firstFrames > 0 && secondFrames > 0 && ticks > 0, "both windows to render and the app to tick");
     await waitFor(() => pixelsAreMagenta(firstId, 64, 64), "the initial 64×64 frame");
 
@@ -82,14 +106,20 @@ test("two windows isolate native input, geometry, presentation and close", async
     await waitFor(() => pixelsAreMagenta(firstId, 96, 72), "the resized 96×72 frame");
 
     const transitions = [];
-    first.on("minimize", event => { transitions.push(event.type); });
-    first.on("restore", event => { transitions.push(event.type); });
+
+    first.on("minimize", event => {
+      transitions.push(event.type);
+    });
+    first.on("restore", event => {
+      transitions.push(event.type);
+    });
     wm("minimize", firstId);
     await waitFor(() => first.status.minimized && transitions.length === 1, "minimization");
     assert.equal(first.metrics.drawable, false);
     assert.equal(first.toFramebuffer(1, 1), undefined);
     const minimizedFrames = firstFrames;
     const minimizedTicks = ticks;
+
     await waitFor(() => ticks >= minimizedTicks + 3, "fixed updates while minimized");
     assert.equal(firstFrames, minimizedFrames);
     wm("restore", firstId);
@@ -102,6 +132,7 @@ test("two windows isolate native input, geometry, presentation and close", async
     xdo("keydown", "a");
     await waitFor(() => first.isKeyDown(Key.A) && firstText.some(event => event.codepoint === 97), "physical and text input");
     const press = firstKeys.find(event => event.key === Key.A && event.action === "press");
+
     assert.ok(press);
     assert.ok(first.isScancodeDown(press.scancode));
     first.setPointerCapture(true);
@@ -131,11 +162,15 @@ test("two windows isolate native input, geometry, presentation and close", async
     assert.ok(!secondKeys.some(event => event.key === Key.A && event.action === "press"));
 
     let closeRequests = 0;
+
     first.on("closeRequest", event => {
-      if(++closeRequests === 1) event.preventDefault();
+      if(++closeRequests === 1) {
+        event.preventDefault();
+      }
     });
     app.pause();
     const paused = [firstFrames, secondFrames, ticks];
+
     wm("close", firstId);
     await waitFor(() => closeRequests === 1, "close request while paused");
     assert.deepEqual([firstFrames, secondFrames, ticks], paused);
@@ -148,11 +183,17 @@ test("two windows isolate native input, geometry, presentation and close", async
     assert.throws(() => first.setVisible(true), /closed/);
     first.dispose();
     const survivingFrames = secondFrames;
+
     await waitFor(() => secondFrames > survivingFrames, "second window to render after first disposal");
-    second.on("closeRequest", () => { assert.fail("requestClose must not emit closeRequest"); });
+    second.on("closeRequest", () => {
+      assert.fail("requestClose must not emit closeRequest");
+    });
     second.requestClose();
     await running;
-    if(failure) throw failure.error;
+    if(failure) {
+      throw failure.error;
+    }
+
     assert.equal(app.pollEvents(), false);
   } finally {
     try {
@@ -165,7 +206,10 @@ test("two windows isolate native input, geometry, presentation and close", async
 
   async function waitFor(predicate, description) {
     await until(() => {
-      if(failure) throw failure.error;
+      if(failure) {
+        throw failure.error;
+      }
+
       return predicate();
     }, description);
   }
@@ -173,12 +217,15 @@ test("two windows isolate native input, geometry, presentation and close", async
 
 test("a failed input batch discards window commands and preserves subscription order", async () => {
   const app = new Application();
+
   try {
     const window = app.createWindow({ title: "Hostframe input batch" });
     const id = windowId("Hostframe input batch");
+
     xdo("windowfocus", id);
     await until(() => {
       app.pollEvents();
+
       return window.input.focused;
     }, "input batch window to gain focus");
     const calls = [];
@@ -188,13 +235,16 @@ test("a failed input batch discards window commands and preserves subscription o
       window.requestClose();
       throw sentinel;
     });
+
     wm("close", id);
     await until(() => {
       try {
         app.pollEvents();
+
         return false;
       } catch (error) {
         assert.equal(error, sentinel);
+
         return true;
       }
     }, "close callback rejection");
@@ -204,19 +254,29 @@ test("a failed input batch discards window commands and preserves subscription o
 
     let offLate;
     let offRemoved;
+
     window.on("closeRequest", event => {
       calls.push("first");
       event.preventDefault();
       offRemoved();
-      offLate ??= window.on("closeRequest", () => { calls.push("late"); });
+      offLate ??= window.on("closeRequest", () => {
+        calls.push("late");
+      });
     });
-    offRemoved = window.on("closeRequest", () => { assert.fail("Removed callback ran"); });
-    function duplicate() { calls.push("duplicate"); }
+    offRemoved = window.on("closeRequest", () => {
+      assert.fail("Removed callback ran");
+    });
+    function duplicate() {
+      calls.push("duplicate");
+    }
+
     const offDuplicate = window.on("closeRequest", duplicate);
+
     window.on("closeRequest", duplicate);
     wm("close", id);
     await until(() => {
       app.pollEvents();
+
       return calls.length >= 3;
     }, "first subscribed close batch");
     assert.deepEqual(calls, ["first", "duplicate", "duplicate"]);
@@ -224,6 +284,7 @@ test("a failed input batch discards window commands and preserves subscription o
     wm("close", id);
     await until(() => {
       app.pollEvents();
+
       return calls.length >= 6;
     }, "next subscribed close batch");
     assert.deepEqual(calls.slice(3), ["first", "duplicate", "late"]);
@@ -247,14 +308,20 @@ function wm(action, id) {
 
 function pixelsAreMagenta(id, width, height) {
   const rgb = execFileSync("import", ["-window", id, "-depth", "8", "rgb:-"], { timeout: 3000 });
+
   return rgb.length === width * height * 3 && rgb.every((value, index) => value === (index % 3 === 1 ? 0 : 255));
 }
 
 async function until(predicate, description) {
   const deadline = performance.now() + 5000;
+
   do {
-    if(predicate()) return;
+    if(predicate()) {
+      return;
+    }
+
     await delay(10);
   } while(performance.now() < deadline);
+
   assert.fail(`Timed out waiting for ${description}`);
 }

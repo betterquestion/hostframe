@@ -35,8 +35,13 @@ export class Application {
     // Enforce native thread/session/operation guards even for fallback values.
     void this.#native.hasOpenWindows;
     const name = getKeyName(key);
-    if(!name || (key === Key.UNKNOWN && scancode < 0)) return name ?? "UNKNOWN";
+
+    if(!name || (key === Key.UNKNOWN && scancode < 0)) {
+      return name ?? "UNKNOWN";
+    }
+
     const label = this.#native.getKeyLabel(key, scancode);
+
     return label && !/\p{Cc}/u.test(label) ? label : name;
   }
 
@@ -45,16 +50,25 @@ export class Application {
     this.#requireAlive();
     requireKeyInteger(key);
     void this.#native.hasOpenWindows;
-    if(key === Key.UNKNOWN || !getKeyName(key)) return undefined;
+    if(key === Key.UNKNOWN || !getKeyName(key)) {
+      return undefined;
+    }
+
     const scancode = this.#native.getKeyScancode(key);
+
     return scancode < 0 ? undefined : scancode;
   }
 
   createWindow(options: WindowOptions = {}) {
     const native = this.#native.createWindow(this.gpu, options);
+
     try {
-      const { window } = createWindow(native, disposed => { this.#windows.delete(disposed); }, () => Boolean(this.#loop));
+      const { window } = createWindow(native, disposed => {
+        this.#windows.delete(disposed);
+      }, () => Boolean(this.#loop));
+
       this.#windows.add(window);
+
       return window;
     } catch (error) {
       native.dispose();
@@ -65,7 +79,10 @@ export class Application {
   /** Pumps native events without rendering. Returns whether any window is open. */
   pollEvents() {
     this.#native.pollEvents();
-    for(const window of Array.from(this.#windows)) getWindowController(window).dispatchInput();
+    for(const window of Array.from(this.#windows)) {
+      getWindowController(window).dispatchInput();
+    }
+
     // Input commands may have closed windows after native polling returned.
     return this.#native.hasOpenWindows;
   }
@@ -73,36 +90,57 @@ export class Application {
   /** Registers a synchronous listener and returns an idempotent unsubscribe function. */
   on(event: "fixedUpdate", listener: (event: FixedUpdateEvent) => undefined) {
     this.#requireAlive();
-    if(event !== "fixedUpdate") throw new TypeError(`Unknown application event: ${String(event)}`);
+    if(event !== "fixedUpdate") {
+      throw new TypeError(`Unknown application event: ${String(event)}`);
+    }
+
     return this.#listeners.add(listener);
   }
 
   /** Runs until stopped, disposed, or no window remains open. Callback failures reject. */
   run(options: RunOptions = {}) {
     this.#requireAlive();
-    if(this.#loop) throw new Error("Application is already running");
+    if(this.#loop) {
+      throw new Error("Application is already running");
+    }
+
     // Enforce the native operation guard before scheduling, including inside rendering.
     // Check guards without delivering input until the run promise is active.
     void this.#native.hasOpenWindows;
     const loop = new ApplicationLoop(options, {
       pollEvents: () => this.pollEvents(),
-      fixedUpdate: event => { this.#emitFixedUpdate(event); },
+      fixedUpdate: event => {
+        this.#emitFixedUpdate(event);
+      },
       render: event => {
-        if(!loop.active) return;
-        if(!this.#native.hasOpenWindows) {
-          loop.stop();
+        if(!loop.active) {
           return;
         }
+
+        if(!this.#native.hasOpenWindows) {
+          loop.stop();
+
+          return;
+        }
+
         // Snapshot creation order. Each dispatch rechecks native lifecycle;
         // fixed-update mutations have already committed before this snapshot.
         for(const window of Array.from(this.#windows)) {
-          if(!loop.active) break;
+          if(!loop.active) {
+            break;
+          }
+
           getWindowController(window).dispatchRender(event, active);
         }
       }
     });
-    function active() { return loop.active; }
+
+    function active() {
+      return loop.active;
+    }
+
     this.#loop = loop;
+
     return loop.run().finally(() => {
       this.#loop = undefined;
     });
@@ -135,7 +173,10 @@ export class Application {
       // disposal leaves it alive and must not cancel an otherwise healthy run.
       if(this.#native.disposed) {
         this.stop();
-        for(const window of Array.from(this.#windows)) window.dispose();
+        for(const window of Array.from(this.#windows)) {
+          window.dispose();
+        }
+
         this.#windows.clear();
         this.#listeners.clear();
       }
@@ -143,23 +184,33 @@ export class Application {
   }
 
   #requireAlive() {
-    if(this.#native.disposed) throw new Error("Application is disposed");
+    if(this.#native.disposed) {
+      throw new Error("Application is disposed");
+    }
   }
 
   #requireLoop() {
     this.#requireAlive();
-    if(!this.#loop) throw new Error("Application is not running");
+    if(!this.#loop) {
+      throw new Error("Application is not running");
+    }
+
     return this.#loop;
   }
 
   #emitFixedUpdate(value: FixedUpdateEvent) {
     // The application owns stop/pause/close policy, independently of listener mechanics.
     this.#listeners.snapshot()(value, () => {
-      if(!this.#loop?.active) return false;
-      if(!this.#native.hasOpenWindows) {
-        this.stop();
+      if(!this.#loop?.active) {
         return false;
       }
+
+      if(!this.#native.hasOpenWindows) {
+        this.stop();
+
+        return false;
+      }
+
       return true;
     });
   }

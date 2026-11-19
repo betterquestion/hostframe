@@ -16,5 +16,6 @@ export function archivePath(name: string) {
 
 export async function archiveIntegrity(path: string) {
   const contents = await Bun.file(path).bytes();
+
   return `sha512-${Bun.CryptoHasher.hash("sha512", contents, "base64")}`;
 }

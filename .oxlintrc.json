@@ -23,7 +23,7 @@
     ],
     "curly": [
       "error",
-      "multi-line"
+      "all"
     ],
     "func-style": [
       "error",
@@ -31,10 +31,6 @@
       {
         "allowArrowFunctions": false
       }
-    ],
-    "style/array-bracket-spacing": [
-      "error",
-      "never"
     ],
     "style/arrow-parens": [
       "error",
@@ -55,7 +51,7 @@
       "error",
       "1tbs",
       {
-        "allowSingleLine": true
+        "allowSingleLine": false
       }
     ],
     "style/comma-dangle": [
@@ -170,10 +166,6 @@
       "error",
       "beside"
     ],
-    "style/object-curly-spacing": [
-      "error",
-      "always"
-    ],
     "style/padded-blocks": [
       "error",
       "never"
@@ -242,6 +234,61 @@
       {
         "before": false,
         "after": true
+      }
+    ],
+    "style/padding-line-between-statements": [
+      "error",
+      {
+        "blankLine": "always",
+        "prev": "*",
+        "next": "return"
+      },
+      {
+        "blankLine": "always",
+        "prev": "block-like",
+        "next": "*"
+      },
+      {
+        "blankLine": "always",
+        "prev": [
+          "const",
+          "let",
+          "var"
+        ],
+        "next": "*"
+      },
+      {
+        "blankLine": "any",
+        "prev": [
+          "const",
+          "let",
+          "var"
+        ],
+        "next": [
+          "const",
+          "let",
+          "var"
+        ]
+      }
+    ],
+    "style/list-style": [
+      "error",
+      {
+        "overrides": {
+          "()": "off",
+          "<>": "off",
+          "{}": {
+            "singleLine": {
+              "spacing": "always"
+            }
+          },
+          "ObjectExpression": {
+            "singleLine": {
+              "spacing": "always",
+              "maxItems": 2
+            }
+          }
+        }
       }
     ]
   }

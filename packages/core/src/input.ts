@@ -21,6 +21,7 @@ export function freezeInput(state: InputState) {
   Object.freeze(state.keys);
   Object.freeze(state.scancodes);
   Object.freeze(state.buttons);
+
   return Object.freeze(state);
 }
 
@@ -32,37 +33,53 @@ export class InputListeners {
     if(!inputEventTypes.includes(event)) {
       throw new TypeError(`Unknown window event: ${String(event)}`);
     }
+
     let listeners = this.#listeners.get(event);
+
     if(!listeners) {
       listeners = new Subscriptions(event, "a window");
       this.#listeners.set(event, listeners);
     }
+
     return listeners.add(callback as (event: InputEvent) => undefined);
   }
 
-  dispatch(events: NativeInputEvent[], acceptClose: () => void = () => {}) {
+  dispatch(events: NativeInputEvent[], acceptClose: () => void = () => { }) {
     // Additions during dispatch start next batch; removals take effect immediately.
     const snapshot = new Map(Array.from(this.#listeners, ([type, listeners]) => [type, listeners.snapshot()]));
+
     for(const event of events) {
       if(event.type === "closeRequest") {
         let active = true;
         let canceled = false;
         const request: CloseRequestEvent = Object.freeze({
           type: "closeRequest",
-          get defaultPrevented() { return canceled; },
+          get defaultPrevented() {
+            return canceled;
+          },
           preventDefault() {
-            if(!active) throw new Error("Close cancellation is only valid during synchronous closeRequest delivery");
+            if(!active) {
+              throw new Error("Close cancellation is only valid during synchronous closeRequest delivery");
+            }
+
             canceled = true;
           }
         });
+
         try {
           snapshot.get(event.type)?.(request);
         } finally {
           active = false;
         }
-        if(!canceled) acceptClose();
+
+        if(!canceled) {
+          acceptClose();
+        }
       } else {
-        if(event.type === "metrics") Object.freeze(event.metrics);
+        if(event.type === "metrics") {
+          Object.freeze(event.metrics);
+        }
+
         Object.freeze(event);
         snapshot.get(event.type)?.(event);
       }
@@ -70,7 +87,10 @@ export class InputListeners {
   }
 
   clear() {
-    for(const listeners of this.#listeners.values()) listeners.clear();
+    for(const listeners of this.#listeners.values()) {
+      listeners.clear();
+    }
+
     this.#listeners.clear();
   }
 }
