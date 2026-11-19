@@ -25,10 +25,10 @@ device.createTexture({
   size: [1, 1],
   format: "rgba8unorm"
 });
-// @ts-expect-error WebGPU still validates texture format names.
 device.createTexture({
   usage: attachmentUsage,
   size: [1, 1],
+  // @ts-expect-error WebGPU still validates texture format names.
   format: "not-a-format"
 });
 void prototype;
