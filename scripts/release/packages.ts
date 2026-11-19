@@ -10,6 +10,10 @@ export type ReleasePackage = {
 
 const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/;
 
+export function stableReleaseTag(name: string, version: string) {
+  return `npm/${name}@${version}`;
+}
+
 export async function publicPackages() {
   const packages: ReleasePackage[] = [];
   for(const name of (await readdir("packages")).sort()) {

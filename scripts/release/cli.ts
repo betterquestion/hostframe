@@ -1,6 +1,6 @@
 import { $ } from "bun";
 import { parseArgs } from "node:util";
-import { getPackage, nextVersion, publicPackages, writeVersion } from "./packages.ts";
+import { getPackage, nextVersion, publicPackages, stableReleaseTag, writeVersion } from "./packages.ts";
 
 const usage = `Usage
   bun run release [package] <patch|minor|major|stable> [--dry-run]
@@ -41,7 +41,7 @@ async function release() {
   if(!branch) throw new Error("Check out a branch before releasing");
   if(!preview && branch !== "main") throw new Error("Switch to main to publish a stable release");
   if((await $`git status --porcelain`.text()).trim()) throw new Error("Commit or stash your changes before releasing");
-  const stableTag = `npm/${pkg.name}/${version}`;
+  const stableTag = stableReleaseTag(pkg.name, version);
   if(!preview) await ensureNewTag(stableTag);
 
   if(version !== pkg.version) {

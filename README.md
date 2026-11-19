@@ -41,7 +41,7 @@ bun run release hostframe minor
 bun run release hostframe major
 ```
 
-Each command bumps the named package's version, commits the updated manifest and lockfile, and pushes `main` with the release tag. CI tests and packs the tagged source, then publishes the tested tarball to npm's `latest` tag. Use `stable` to release the current base version without another bump and `--dry-run` to see the version before committing. The package argument defaults to `hostframe`; once adapters exist, name the adapter to release it independently.
+Each command bumps the named package's version, commits the updated manifest and lockfile, and pushes `main` with a release tag such as `npm/hostframe@0.1.0`. CI tests and packs the tagged source, then publishes the tested tarball to npm's `latest` tag. Use `stable` to release the current base version without another bump and `--dry-run` to see the version before committing. The package argument defaults to `hostframe`. Once adapters exist, name the adapter to release it independently.
 
 Run `bun run release hostframe next` from a branch to publish a preview under npm's `next` tag. Use `bun run release hostframe minor --next` to bump the base version first. CI adds a suffix such as `-next.42` to the version. To release the preview as stable, merge the work into `main` and run `bun run release hostframe stable`.
 

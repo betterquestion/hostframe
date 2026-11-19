@@ -1,6 +1,7 @@
 import { $ } from "bun";
 import { archiveIntegrity, archivePath, planFile, registry } from "./artifacts.ts";
 import type { ReleasePlan } from "./artifacts.ts";
+import { stableReleaseTag } from "./packages.ts";
 
 const plan = await Bun.file(planFile).json() as ReleasePlan;
 if(process.env.GITHUB_EVENT_NAME !== "push" || !plan.packages.length
@@ -19,7 +20,7 @@ for(const release of plan.packages) {
       console.log(`A newer commit is on ${previewBranch}. Skipping this preview.`);
       break;
     }
-  } else if(!(channel === "next" && isTaggedPreview) && !(channel === "latest" && plan.ref === `refs/tags/npm/${name}/${version}`)) {
+  } else if(!(channel === "next" && isTaggedPreview) && !(channel === "latest" && plan.ref === `refs/tags/${stableReleaseTag(name, version)}`)) {
     throw new Error(`Unexpected release channel for ${name}@${version}`);
   }
 

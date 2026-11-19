@@ -30,9 +30,10 @@ async function prepare() {
       }
     } else if(plan.ref.startsWith("refs/tags/npm/")) {
       const tag = plan.ref.slice("refs/tags/npm/".length);
-      const slash = tag.lastIndexOf("/");
-      const version = tag.slice(slash + 1);
-      const pkg = getPackage(packages, tag.slice(0, slash));
+      const separator = tag.lastIndexOf("@");
+      if(separator <= 0) throw new Error("Expected a stable release tag in the form npm/<package>@<version>");
+      const version = tag.slice(separator + 1);
+      const pkg = getPackage(packages, tag.slice(0, separator));
       if(pkg.version !== version || nextVersion(version, "stable") !== version) {
         throw new Error(`Release tag ${tag} must match the stable version in ${pkg.directory}/package.json`);
       }
