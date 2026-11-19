@@ -11,3 +11,4 @@ export type { FixedUpdateEvent, RenderEvent, RunOptions } from "./timing.js";
 export { installWebGPUGlobals } from "./bridge.js";
 
 export type { WindowStatus, MinimizeEvent, RestoreEvent, WindowMetrics, MetricsEvent } from "./contracts.js";
+export type { GPU, GPUAdapter, GPUCanvasConfiguration, GPUDevice, GPURequestAdapterOptions, GPUTexture, GPUTextureFormat } from "./webgpu-types.js";

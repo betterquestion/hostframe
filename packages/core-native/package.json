@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "bun scripts/setup.ts && bun run build:addon --output-dir build/native",
-    "build:addon": "napi build --target x86_64-unknown-linux-gnu --platform --no-js --dts native.d.ts"
+    "build:addon": "napi build --target x86_64-unknown-linux-gnu --platform --no-js --dts native.d.ts",
+    "stage-licenses": "bun scripts/stage-licenses.ts"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.10.12"

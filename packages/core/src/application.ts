@@ -6,6 +6,7 @@ import type { Window } from "./window.js";
 import { ApplicationLoop } from "./loop.js";
 import { Subscriptions } from "./subscriptions.js";
 import type { FixedUpdateEvent, RunOptions } from "./timing.js";
+import type { GPU } from "./webgpu-types.js";
 
 /** Owns one GLFW session and its windows. Construct on the process main thread. */
 export class Application {

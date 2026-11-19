@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync } from "node:fs";
+import { cpSync } from "node:fs";
 import { join } from "node:path";
 
 const nativeBuild = "../core-native/build";
@@ -14,5 +14,4 @@ for(const file of [
   cpSync(join(nativeBuild, file), join("build", file), { recursive: true });
 }
 
-mkdirSync("build/licenses", { recursive: true });
-cpSync("../../LICENSE", "build/licenses/Hostframe.txt");
+cpSync("../../LICENSE", "LICENSE");

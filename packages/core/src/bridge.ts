@@ -1,14 +1,15 @@
 import { dawn, dawnPath, native } from "./native.js";
 import type { NativeEvent, NativeMetrics } from "./native.js";
 import type { InputEvent, InputState, PresentMode, WindowOptions } from "./contracts.js";
+import type { GPU, GPUAdapter, GPUCanvasConfiguration, GPUDevice, GPURequestAdapterOptions, GPUTexture, GPUTextureFormat } from "./webgpu-types.js";
 
 export type { PresentMode, WindowOptions } from "./contracts.js";
 
-export const gpu = dawn.create([]);
+export const gpu: GPU = dawn.create([]);
 const destroyFrame = dawn.globals.GPUTexture.prototype.destroy;
 const destroyDevice = dawn.globals.GPUDevice.prototype.destroy;
 
-export function getProcessGPU() {
+export function getProcessGPU(): GPU {
   return gpu;
 }
 
@@ -142,11 +143,11 @@ export class NativeWindow {
     return this.#app.guard(operation, callback);
   }
 
-  requestAdapter(options?: GPURequestAdapterOptions) {
+  requestAdapter(options?: GPURequestAdapterOptions): Promise<GPUAdapter | null> {
     return this.#guard("requestAdapter", () => this.#handle.requestAdapter(this.#gpu, options) as Promise<GPUAdapter | null>);
   }
 
-  configure(configuration: GPUCanvasConfiguration) {
+  configure(configuration: GPUCanvasConfiguration): NormalizedConfiguration {
     return this.#guard("configure", () => {
       const normalized = normalizeConfiguration(configuration);
       try {
@@ -312,7 +313,17 @@ function decodeEvent({ kind, values }: NativeEvent): InputEvent {
   }
 }
 
-function normalizeConfiguration(configuration: GPUCanvasConfiguration) {
+type NormalizedConfiguration = {
+  device: GPUDevice,
+  format: GPUTextureFormat,
+  usage: number,
+  alphaMode: "opaque" | "premultiplied",
+  viewFormats: GPUTextureFormat[],
+  colorSpace: "srgb",
+  toneMapping: { mode: "standard" }
+};
+
+function normalizeConfiguration(configuration: GPUCanvasConfiguration): NormalizedConfiguration {
   if(!configuration || typeof configuration !== "object" || Array.isArray(configuration)) {
     throw new TypeError("Expected a canvas configuration object");
   }

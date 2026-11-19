@@ -1,4 +1,10 @@
 import type { NativeWindow } from "./bridge.js";
+import type { GPUAdapter, GPUCanvasConfiguration, GPURequestAdapterOptions, GPUTexture, GPUTextureFormat } from "./webgpu-types.js";
+
+type ConfigurationSnapshot = Omit<GPUCanvasConfiguration, "toneMapping" | "viewFormats"> & {
+  toneMapping: NonNullable<GPUCanvasConfiguration["toneMapping"]>,
+  viewFormats: GPUTextureFormat[]
+};
 
 type WindowGPUContextController = {
   render(dispatch: () => undefined): boolean,
@@ -42,7 +48,7 @@ export class WindowGPUContext {
   }
 
   /** Standard adapter options, restricted to adapters capable of presenting to this window. */
-  async requestAdapter(options: GPURequestAdapterOptions = {}) {
+  async requestAdapter(options: GPURequestAdapterOptions = {}): Promise<GPUAdapter | null> {
     return this.#native.requestAdapter(options);
   }
 
@@ -64,7 +70,7 @@ export class WindowGPUContext {
     }
   }
 
-  getConfiguration() {
+  getConfiguration(): ConfigurationSnapshot | null {
     this.#requireAlive();
     const configuration = this.#configuration;
     return configuration ? {
@@ -74,7 +80,7 @@ export class WindowGPUContext {
     } : null;
   }
 
-  getCurrentTexture() {
+  getCurrentTexture(): GPUTexture {
     this.#requireAlive();
     if(!this.#texture) throw new Error("getCurrentTexture() requires an active window render or manual draw callback");
     return this.#texture;

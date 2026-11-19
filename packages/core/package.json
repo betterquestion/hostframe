@@ -1,7 +1,13 @@
 {
   "name": "hostframe",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.2",
+  "description": "Native desktop WebGPU applications for Node.js and Bun.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/betterquestion/hostframe.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "exports": {
     ".": "./dist/index.js",
@@ -11,20 +17,23 @@
   "files": [
     "dist/",
     "build/native/",
+    "build/types/",
     "build/dawn/",
-    "build/licenses/"
+    "build/licenses/rust/"
   ],
   "os": ["linux"],
   "cpu": ["x64"],
   "libc": ["glibc"],
   "scripts": {
-    "build": "bun run --cwd ../core-native build && bun scripts/stage-native.ts && tsc",
-    "prepack": "bun run build",
+    "build": "bun run --cwd ../core-native build && bun run build:ts",
+    "build:ts": "bun scripts/stage-native.ts && bun scripts/stage-webgpu-types.ts && tsc",
+    "prepack": "bun run --cwd ../core-native build --release && bun run build:ts && bun run --cwd ../core-native stage-licenses",
     "test": "bun run build && bun scripts/test.ts",
     "test:cleanup-timeout": "bun run build && bun scripts/test.ts --cleanup-timeout"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@webgpu/types": "0.1.74",
     "typescript": "6"
   }
 }
