@@ -27,6 +27,8 @@ The TypeScript entry point exposes the original Hostframe application, window an
 
 The core suite runs in Node and Bun. It uses a fake clock for scheduling and plain WebGPU for readback, pixel checks, and frame lifetime. The X11 tests use Xvfb and a small fixture for window-manager events. The forced timeout checks build a separate test-only addon. Run `bun run test:cleanup-timeout` to run only those checks.
 
+[Linux CI](.github/workflows/linux-ci.yml) runs lint and the core suite, then installs the packed `hostframe` tarball in a fresh project and creates a WebGPU device in both Node and Bun.
+
 The pinned Dawn bridge validates device ownership and loss synchronously before Hostframe replaces a canvas configuration. A device from another Dawn instance or a device destroyed in the same JavaScript turn leaves the existing configuration usable.
 
 ## Original Hostframe
