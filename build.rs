@@ -13,7 +13,9 @@ fn main() {
         .header(header.to_str().unwrap())
         .clang_arg(format!("-I{}", include.display()))
         .allowlist_type("HostframeDawnApi|WGPUSurfaceSourceXlibWindow")
-        .allowlist_var("HOSTFRAME_DAWN_ABI_V1|WGPUTextureUsage_RenderAttachment")
+        .allowlist_var(
+            "HOSTFRAME_DAWN_ABI_V1|HOSTFRAME_DAWN_DEVICE_.*|WGPUTextureUsage_RenderAttachment",
+        )
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("generate Dawn bridge bindings")

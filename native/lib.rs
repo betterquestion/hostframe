@@ -4,10 +4,13 @@ mod window;
 
 use std::cell::{RefCell, RefMut};
 
-use napi::{Env, Error, JsValue, Result, bindgen_prelude::Unknown};
+use napi::{
+    Env, Error, JsValue, Result,
+    bindgen_prelude::{Function, Unknown},
+};
 use napi_derive::napi;
-use presentation::Surface;
-use window::{NativeEvent, NativeWindowOptions, Window};
+use presentation::{Surface, SurfaceOptions};
+use window::{NativeInput, NativeInputBatch, NativeWindowOptions, Window};
 
 #[napi]
 pub fn inspect_dawn(env: Env, path: String, gpu: Unknown, device: Unknown) -> Result<u32> {
@@ -42,16 +45,59 @@ impl NativeWindow {
     #[napi(constructor)]
     pub fn new(env: Env, path: String, gpu: Unknown, options: NativeWindowOptions) -> Result<Self> {
         let bridge = dawn::Bridge::load(path)?;
+        let vsync = options.vsync;
         let window = Window::open(options)?;
-        let surface = Surface::open(bridge, env, gpu, &window)?;
+        let surface = Surface::open(bridge, env, gpu, &window, vsync)?;
         Ok(Self {
             state: RefCell::new(Some(WindowState { surface, window })),
         })
     }
 
     #[napi]
-    pub fn poll(&self) -> Result<Vec<NativeEvent>> {
-        Ok(self.open_state()?.window.poll())
+    pub fn take_events(&self) -> Result<NativeInputBatch> {
+        Ok(self.open_state()?.window.take_events())
+    }
+
+    #[napi]
+    pub fn request_close(&self) -> Result<NativeInput> {
+        Ok(self.open_state()?.window.request_close())
+    }
+
+    #[napi]
+    pub fn set_pointer_capture(&self, captured: bool, raw: bool) -> Result<NativeInput> {
+        self.open_state()?.window.set_capture(captured, raw)
+    }
+
+    #[napi]
+    pub fn set_title(&self, title: String) -> Result<()> {
+        self.open_state()?
+            .window
+            .control(|window| window.set_title(&title))
+    }
+
+    #[napi]
+    pub fn set_size(&self, width: i32, height: i32) -> Result<()> {
+        self.open_state()?
+            .window
+            .control(|window| window.set_size(width, height))
+    }
+
+    #[napi]
+    pub fn set_position(&self, x: i32, y: i32) -> Result<()> {
+        self.open_state()?
+            .window
+            .control(|window| window.set_pos(x, y))
+    }
+
+    #[napi]
+    pub fn set_visible(&self, visible: bool) -> Result<()> {
+        self.open_state()?.window.control(|window| {
+            if visible {
+                window.show();
+            } else {
+                window.hide();
+            }
+        })
     }
 
     #[napi]
@@ -67,20 +113,42 @@ impl NativeWindow {
     }
 
     #[napi]
-    pub fn configure(&self, env: Env, device: Unknown, format: String) -> Result<()> {
-        self.open_state()?.surface.configure(env, device, &format)
+    pub fn configure(
+        &self,
+        env: Env,
+        device: Unknown,
+        options: SurfaceOptions,
+        read_max_dimension: Function<(), u32>,
+        destroy_device: Function<(), ()>,
+    ) -> Result<&'static str> {
+        self.open_state()?.surface.configure(
+            env,
+            device,
+            options,
+            &|| read_max_dimension.call(()),
+            &|| destroy_device.call(()),
+        )
+    }
+
+    #[napi]
+    pub fn configured(&self) -> Result<bool> {
+        Ok(self.open_state()?.surface.configured())
+    }
+
+    #[napi]
+    pub fn unconfigure(&self, destroy_device: Function<(), ()>) -> Result<()> {
+        self.open_state()?
+            .surface
+            .unconfigure(Some(&|| destroy_device.call(())))
     }
 
     #[napi]
     pub fn acquire<'env>(&self, env: Env, device: Unknown<'env>) -> Result<Option<Unknown<'env>>> {
         let mut state = self.open_state()?;
-        let size = state.window.handle.get_framebuffer_size();
-        if state.window.handle.is_iconified() || size.0 <= 0 || size.1 <= 0 {
-            return Ok(None);
-        }
-        state
-            .surface
-            .acquire(env, device, (size.0 as u32, size.1 as u32))
+        let (width, height) = state.window.handle.get_framebuffer_size();
+        let size = (!state.window.handle.is_iconified() && width > 0 && height > 0)
+            .then_some((width as u32, height as u32));
+        state.surface.acquire(env, device, size)
     }
 
     #[napi]
@@ -95,10 +163,10 @@ impl NativeWindow {
     }
 
     #[napi]
-    pub fn close(&self) -> Result<()> {
+    pub fn close(&self, destroy_device: Function<(), ()>) -> Result<()> {
         let mut state = self.borrow_state()?;
         if let Some(mut state) = state.take() {
-            state.surface.close()?;
+            state.surface.close(Some(&|| destroy_device.call(())))?;
         }
         Ok(())
     }

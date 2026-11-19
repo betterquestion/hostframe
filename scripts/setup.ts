@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import { dirname, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
-const archive = resolve(process.argv[2] ?? process.env.HOSTFRAME_DAWN_ARCHIVE ?? "../hostframe-dawn/build/hosted-artifacts/44427264780/hostframe-dawn-linux-x64.tar.gz");
-const expected = "17a6df9d97b728fde6c7f9573a1f8b2a69377b6a6634111faca3abfc73dc58f1";
+const archive = resolve(process.argv[2] ?? process.env.HOSTFRAME_DAWN_ARCHIVE ?? "build/dawn-artifacts/44542553350/hostframe-dawn-linux-x64.tar.gz");
+const expected = "03102f9ae27864573e0d0b0be5126e25d99a3fc793fb260442567f3a152e4bbc";
 const destination = resolve("build/dawn");
 
 installDawn();

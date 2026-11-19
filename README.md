@@ -4,7 +4,7 @@ This directory is the starting point for the Rust Hostframe pilot. The [original
 
 ## Build and test the pilot
 
-On Linux x86-64 with glibc, install Rust with Cargo, Node, Bun, a C compiler, CMake, libclang, and the X11 development libraries for GLFW (X11, Xrandr, Xinerama, Xcursor, Xi, and XKB). The integration test also uses Xvfb, xauth, xdotool, ImageMagick's `import`, and Mesa's software Vulkan driver.
+On Linux x86-64 with glibc, install Rust with Cargo, Node, Bun, a C compiler, CMake, libclang, and the X11 development libraries for GLFW (X11, Xrandr, Xinerama, Xcursor, Xi, XFixes, and XKB). The integration test also uses Xvfb, xdotool, ImageMagick's `import`, and Mesa's software Vulkan driver.
 
 ```sh
 bun install --frozen-lockfile
@@ -12,9 +12,19 @@ bun run lint
 bun run test
 ```
 
-The build verifies the Dawn archive before extracting its headers and addon. Set `HOSTFRAME_DAWN_ARCHIVE` if your copy is outside the sibling checkout path described below. Use `bun run build` to build without running the integration test.
+The build verifies the Dawn archive before extracting its headers and addon. From this checkout, download the pinned package with:
 
-The TypeScript entry point exports `Application`. Create a window, call `window.getContext("webgpu")`, and use that context's adapter to create the device you pass to `configure`. The pilot supports one device per window and the RGBA8 and BGRA8 surface formats, including their sRGB variants when supported by the surface. Subscribe with `window.on("render", callback)`, read the current texture during the synchronous callback, and call `await app.run()` to poll and render until the windows close. The `event` subscription reports framebuffer resize, focus, key, text, and pointer events. Call `app.dispose()` before destroying the device.
+```sh
+gh run download 44542553350 --repo jacl38/hostframe-dawn --name hostframe-dawn-linux-x64 --dir build/dawn-artifacts/44542553350
+```
+
+Set `HOSTFRAME_DAWN_ARCHIVE` if you saved the same archive elsewhere. If a previous build extracted the old archive, remove its generated `build/dawn` directory before rebuilding. Use `bun run build` to build without running the integration test.
+
+The TypeScript entry point exposes the original Hostframe application, window and WebGPU context methods. Use `app.run(options)` for scheduled rendering and fixed updates, or pair `app.pollEvents()` with `context.draw()` for a caller-owned loop. Windows report named input and lifecycle events, immutable metrics and held-input snapshots, and cancelable native close requests. Call `app.dispose()` before destroying caller-owned GPU devices. [Application loop](https://github.com/jacl38/hostframe/blob/master/docs/application-loop.md) · [Window input](https://github.com/jacl38/hostframe/blob/master/docs/window-input.md) · [Window lifecycle](https://github.com/jacl38/hostframe/blob/master/docs/window-lifecycle.md) · [WebGPU context](https://github.com/jacl38/hostframe/blob/master/docs/window-context.md)
+
+Run `bun run test:materials` with the original examples and their dependencies installed in the sibling `ts-dawn` checkout. Pass the checkout path as an argument to use a different location. The runner copies the examples into a temporary directory and points their index imports at the Rust build. Run `bun run test:cleanup-timeout` with the same checkout to exercise all four forced cleanup paths with a separate test-only addon.
+
+The pinned Dawn bridge validates device ownership and loss synchronously before Hostframe replaces a canvas configuration. A device from another Dawn instance or a device destroyed in the same JavaScript turn leaves the existing configuration usable.
 
 ## Original Hostframe
 
@@ -33,7 +43,7 @@ JavaScript loads the packaged `dawn.node` first. On Linux, Rust gets a handle to
 - Configure the surface with the JavaScript-created device, acquire a frame, and wrap it as a genuine Dawn `GPUTexture`. JavaScript renders into it using ordinary WebGPU. Hostframe presents the frame and manages its lifetime.
 - Unconfigure and release the surface, submit cleanup work, and tick Dawn while the display connection is still alive. Hostframe owns the deadline and decides how to handle a timeout or device loss.
 
-Keep the library loaded while using its function table and handles. Check the ABI version and table size before calling entries. Calls involving JavaScript values run on the JavaScript thread with values from the current environment. Dawn creates JavaScript adapter and texture wrappers in its own Node-API environment. The [public bridge header](https://github.com/jacl38/hostframe-dawn/blob/b70bbb634626058f594a0970a078424c95da83cb/include/hostframe_dawn/bridge.h) defines the ownership and lifetime contracts.
+Keep the library loaded while using its function table and handles. Check the ABI version and table size before calling entries. Calls involving JavaScript values run on the JavaScript thread with values from the current environment. Dawn creates JavaScript adapter and texture wrappers in its own Node-API environment. The [public bridge header](https://github.com/jacl38/hostframe-dawn/blob/5f6b37f5ec4af6914856b4157dcb1d1a160965df/include/hostframe_dawn/bridge.h) defines the ownership and lifetime contracts.
 
 ## What hostframe-dawn has verified
 
@@ -41,13 +51,13 @@ The [hostframe-dawn repository](https://github.com/jacl38/hostframe-dawn) builds
 
 A test-only C++ Node-API addon opens an X11 window directly with Xlib, using Xvfb for the display. It resolves the bridge from the already-loaded binary. In both Node and Bun it verifies ABI negotiation and handle validation, acquires a real Dawn frame texture, and presents a JavaScript-rendered 64-by-64 magenta frame. The test checks every window pixel and confirms clean exit after draining Dawn cleanup before closing X11. A separate compute test verifies readback in both runtimes. [Dawn project README](https://github.com/jacl38/hostframe-dawn/blob/main/README.md)
 
-The packaging workflow passed in Nektos Act and on GitHub's Ubuntu 24.04 runner. Both runs tested the unpacked artifact. The first hosted run built commit `b70bbb6` and finished its job in 1m 55s. The downloaded archive's SHA-256 was verified. [Hosted run](https://github.com/jacl38/hostframe-dawn/actions/runs/44427264780) · [Linux x86-64 workflow artifact](https://github.com/jacl38/hostframe-dawn/actions/runs/44427264780/artifacts/14485062073)
+The pinned Linux x86-64 artifact comes from the successful GitHub Actions run for commit `5f6b37f`. Its ABI tests cover live devices, devices from another Dawn instance, and synchronous detection immediately after `device.destroy()` in Node and Bun. [Hosted run](https://github.com/jacl38/hostframe-dawn/actions/runs/44542553350) · [Linux x86-64 workflow artifact](https://github.com/jacl38/hostframe-dawn/actions/runs/44542553350/artifacts/14538308740)
 
 ```text
-17a6df9d97b728fde6c7f9573a1f8b2a69377b6a6634111faca3abfc73dc58f1  hostframe-dawn-linux-x64.tar.gz
+03102f9ae27864573e0d0b0be5126e25d99a3fc793fb260442567f3a152e4bbc  hostframe-dawn-linux-x64.tar.gz
 ```
 
-The artifact is in a private repository and follows GitHub Actions artifact retention. A verified local copy is available at `../hostframe-dawn/build/hosted-artifacts/44427264780/hostframe-dawn-linux-x64.tar.gz`.
+The artifact is in a private repository and follows GitHub Actions artifact retention.
 
 ## First Rust milestones
 

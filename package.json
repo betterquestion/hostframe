@@ -2,13 +2,19 @@
   "name": "hostframe",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
-  "exports": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./globals": "./dist/globals.js"
+  },
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "bun scripts/setup.ts && napi build --target x86_64-unknown-linux-gnu --platform --no-js --output-dir build/native --dts native.d.ts && tsc",
     "lint": "oxlint",
-    "test": "bun run build && bun scripts/test.ts"
+    "test": "bun run build && bun scripts/test.ts",
+    "test:materials": "bun run build && bun scripts/test.ts --materials",
+    "test:cleanup-timeout": "bun run build && bun scripts/test.ts --cleanup-timeout"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.10.12",

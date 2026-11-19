@@ -9,18 +9,18 @@ const { inspectDawn } = require("../build/native/hostframe.linux-x64-gnu.node");
 const dawnPath = fileURLToPath(new URL("../build/dawn/hostframe-dawn-linux-x64/dawn.node", import.meta.url));
 
 assert.throws(() => inspectDawn(dawnPath, {}, {}), /must be loaded/);
-const { Application, installWebGPUGlobals } = await import("../dist/index.js");
+const { Application, Key, installWebGPUGlobals } = await import("../dist/index.js");
 installWebGPUGlobals();
 
 const app = new Application();
 let device;
 try {
   assert.throws(() => app.createWindow({ width: 1.5 }), RangeError);
-  const window = app.createWindow({ title: "Hostframe Rust Pilot", width: 64, height: 64 });
+  const window = app.createWindow({ title: "Hostframe Rust Pilot", width: 64, height: 64, resizable: true });
   const context = window.getContext("webgpu");
-  assert.throws(() => context.getCurrentTexture(), /only available during rendering/);
+  assert.throws(() => context.getCurrentTexture(), /requires an active window render/);
   const exception = new Error("adapter options getter failed");
-  assert.throws(() => context.requestAdapter({
+  await assert.rejects(context.requestAdapter({
     get powerPreference() { throw exception; }
   }), error => error === exception);
 
@@ -31,17 +31,38 @@ try {
   assert.throws(() => inspectDawn(dawnPath, device, device), /Expected a Dawn GPU/);
   assert.throws(() => inspectDawn(dawnPath, app.gpu, Object.create(GPUDevice.prototype)), /Expected a Dawn GPUDevice/);
   assert.throws(() => context.configure({ device, format: "r8unorm" }), /Unsupported/);
-  context.configure({ device, format: app.gpu.getPreferredCanvasFormat() });
+  const format = app.gpu.getPreferredCanvasFormat();
+  context.configure({ device, format, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+  assert.equal(window.presentMode, "fifo");
+  assert.equal(context.getConfiguration().device, device);
+  assert.equal(context.draw(() => {
+    clearFrame(device, context.getCurrentTexture());
+  }), true);
+
+  await checkRejectedDevices(app, window, context);
+
+  let updates = 0;
+  const stopAfterUpdate = app.on("fixedUpdate", ({ dt, tick }) => {
+    assert.equal(dt, 1 / 120);
+    assert.equal(tick, ++updates);
+    app.stop();
+  });
+  await app.run({ updateHz: 120 });
+  stopAfterUpdate();
+  assert.equal(updates, 1);
+  assert.equal(window.shouldClose, false);
 
   const renderError = new Error("render callback failed");
   const unsubscribe = window.on("render", () => { throw renderError; });
   await assert.rejects(app.run(), error => error === renderError);
   unsubscribe();
-  assert.throws(() => context.getCurrentTexture(), /only available during rendering/);
+  assert.throws(() => context.getCurrentTexture(), /requires an active window render/);
 
   const sizes = new Set();
   const events = [];
-  window.on("event", event => { events.push(event); });
+  for(const type of ["metrics", "text", "key"]) {
+    window.on(type, event => { events.push(event); });
+  }
   window.on("render", () => {
     const frame = context.getCurrentTexture();
     assert.ok(frame instanceof GPUTexture);
@@ -55,7 +76,7 @@ try {
   try {
     // This timer must run while the window is still open and rendering.
     await delay(15);
-    assert.equal(window.closed, false);
+    assert.equal(window.shouldClose, false);
     const id = runXdotool("search", "--name", "^Hostframe Rust Pilot$");
     await checkPixels(id, 64, 64);
 
@@ -63,17 +84,20 @@ try {
     runXdotool("windowfocus", id);
     runXdotool("key", "a");
     await waitFor(() => sizes.has("96x72"), "resized Dawn texture");
-    await waitFor(() => events.some(event => event.kind === "resize" && event.width === 96 && event.height === 72), "resize event");
-    await waitFor(() => events.some(event => event.kind === "text" && event.text === "a"), "text input");
-    assert.ok(events.some(event => event.kind === "key"));
+    await waitFor(() => events.some(event => event.type === "metrics" && event.metrics.framebufferWidth === 96 && event.metrics.framebufferHeight === 72), "resize event");
+    await waitFor(() => events.some(event => event.type === "text" && event.codepoint === 97), "text input");
+    assert.ok(events.some(event => event.type === "key" && event.key === Key.A && event.action === "press"));
     await checkPixels(id, 96, 72);
     assert.equal(await device.popErrorScope(), null);
   } finally {
-    window.close();
+    window.requestClose();
     await run;
   }
-  assert.equal(window.closed, true);
-  assert.throws(() => context.requestAdapter(), /closed/);
+  assert.equal(window.shouldClose, true);
+  context.unconfigure();
+  assert.equal(context.getConfiguration(), null);
+  window.dispose();
+  await assert.rejects(context.requestAdapter(), /disposed/);
 } finally {
   try {
     app.dispose();
@@ -82,7 +106,38 @@ try {
   }
 }
 
-console.log("Verified Dawn ABI, GLFW input and resize, JavaScript timers, pixel output, and clean exit");
+console.log("Verified Dawn ABI and device validation, GLFW input and resize, JavaScript timers, pixel output, and clean exit");
+
+async function checkRejectedDevices(app, window, context) {
+  const configuration = context.getConfiguration();
+
+  const foreignGPU = require(dawnPath).create(["backend=vulkan"]);
+  const foreignAdapter = await foreignGPU.requestAdapter();
+  assert.ok(foreignAdapter);
+  const foreignDevice = await foreignAdapter.requestDevice();
+  try {
+    assert.throws(() => context.configure({ ...configuration, device: foreignDevice }), /must belong to this surface's GPU instance/);
+    checkCurrentConfiguration();
+  } finally {
+    foreignDevice.destroy();
+  }
+
+  const adapter = await app.gpu.requestAdapter();
+  assert.ok(adapter);
+  const destroyedDevice = await adapter.requestDevice();
+  destroyedDevice.destroy();
+  // Keep destroy and configure in the same turn, before a device.lost handler could run.
+  assert.throws(() => context.configure({ ...configuration, device: destroyedDevice }), /lost or destroyed/);
+  checkCurrentConfiguration();
+
+  function checkCurrentConfiguration() {
+    assert.deepEqual(context.getConfiguration(), configuration);
+    assert.equal(window.presentMode, "fifo");
+    assert.equal(context.draw(() => {
+      clearFrame(configuration.device, context.getCurrentTexture());
+    }), true);
+  }
+}
 
 function runXdotool(...args) {
   return execFileSync("xdotool", args, { encoding: "utf8" }).trim();

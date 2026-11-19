@@ -48,9 +48,13 @@ impl Bridge {
             .ok_or_else(|| Error::from_reason("Dawn addon does not support bridge ABI v1"))?;
         let header = api.as_ptr().cast::<u32>();
         let (version, size) = unsafe { (header.read(), header.add(1).read()) };
-        if version != HOSTFRAME_DAWN_ABI_V1 || (size as usize) < mem::size_of::<HostframeDawnApi>()
-        {
-            return Err(Error::from_reason("Incompatible Dawn bridge table"));
+        if version != HOSTFRAME_DAWN_ABI_V1 {
+            return Err(Error::from_reason("Incompatible Dawn bridge ABI version"));
+        }
+        if (size as usize) < mem::size_of::<HostframeDawnApi>() {
+            return Err(Error::from_reason(
+                "Dawn bridge table is too small for check_device",
+            ));
         }
         let table = unsafe { api.as_ref() };
         if [
@@ -74,12 +78,31 @@ impl Bridge {
             table.submit_cleanup.is_some(),
             table.device_tick.is_some(),
             table.device_destroy.is_some(),
+            table.check_device.is_some(),
         ]
         .contains(&false)
         {
             return Err(Error::from_reason("Incomplete Dawn bridge table"));
         }
         Ok(api)
+    }
+
+    pub fn check_device(
+        &self,
+        instance: HostframeDawnInstance,
+        device: HostframeDawnDevice,
+    ) -> Result<()> {
+        // Both handles are retained by the surface or the caller for this check.
+        match unsafe { self.api().check_device.unwrap()(instance, device) } {
+            HOSTFRAME_DAWN_DEVICE_USABLE => Ok(()),
+            HOSTFRAME_DAWN_DEVICE_WRONG_INSTANCE => Err(Error::from_reason(
+                "Device must belong to this surface's GPU instance",
+            )),
+            HOSTFRAME_DAWN_DEVICE_LOST_OR_DESTROYED => {
+                Err(Error::from_reason("GPU device is lost or destroyed"))
+            }
+            _ => Err(Error::from_reason("Could not validate the Dawn GPU device")),
+        }
     }
 
     pub fn api(&self) -> &HostframeDawnApi {

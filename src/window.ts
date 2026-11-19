@@ -1,136 +1,181 @@
-import { dawnPath, native } from "./native.js";
-import type { NativeEvent, NativeWindow } from "./native.js";
+import type { NativeWindow } from "./bridge.js";
+import { freezeInput, InputListeners } from "./input.js";
+import type { InputState, WindowInputEvents } from "./input.js";
+import { createWindowGPUContext } from "./context.js";
+import { Subscriptions } from "./subscriptions.js";
+import type { RenderEvent } from "./timing.js";
 
-export interface WindowOptions {
-  title?: string,
-  width?: number,
-  height?: number,
-  resizable?: boolean
-}
+export type WindowEvents = WindowInputEvents & { render: RenderEvent };
 
-export type WindowEvent =
-  | { kind: "close" }
-  | { kind: "resize", width: number, height: number }
-  | { kind: "focus", focused: boolean }
-  | { kind: "key", key: number, scancode: number, action: number, modifiers: number }
-  | { kind: "text", text: string }
-  | { kind: "pointerButton", button: number, action: number, modifiers: number }
-  | { kind: "pointerMove" | "scroll", x: number, y: number };
+type InputCommand = { type: "close" } | { type: "capture", captured: boolean, rawMotion: boolean };
 
-export interface WindowContext {
-  requestAdapter(options?: GPURequestAdapterOptions): Promise<GPUAdapter | null>,
-  configure(configuration: Pick<GPUCanvasConfiguration, "device" | "format">): void,
-  getCurrentTexture(): GPUTexture
-}
-
-type WindowListeners = {
-  render: () => void,
-  event: (event: WindowEvent) => void
+type WindowController = {
+  dispatchInput(): void,
+  dispatchRender(event: RenderEvent, active: () => boolean): void
 };
 
-export class Window {
-  readonly #native: NativeWindow;
-  readonly #context: WindowContext;
-  #device?: GPUDevice;
-  #frame?: GPUTexture;
-  #closing = false;
-  #closed = false;
-  #renderListeners = new Set<WindowListeners["render"]>();
-  #eventListeners = new Set<WindowListeners["event"]>();
+const controllers = new WeakMap<Window, WindowController>();
 
-  constructor(gpu: GPU, options: WindowOptions = {}) {
-    const { title = "Hostframe", width = 800, height = 600, resizable = true } = options;
-    for(const dimension of [width, height]) {
-      if(!Number.isInteger(dimension) || dimension < 1 || dimension > 0x7fffffff) {
-        throw new RangeError("Window dimensions must be positive 32-bit integers");
-      }
-    }
-    this.#native = new native.NativeWindow(dawnPath, gpu, { title, width, height, resizable });
-    this.#context = {
-      requestAdapter: options => this.#native.requestAdapter(gpu, options) as Promise<GPUAdapter | null>,
-      configure: ({ device, format }) => {
-        this.#native.configure(device, format);
-        this.#device = device;
-      },
-      getCurrentTexture: () => {
-        if(!this.#frame) throw new Error("The current texture is only available during rendering");
-        return this.#frame;
-      }
-    };
-  }
-
-  get closed() {
-    return this.#closed;
-  }
-
-  getContext(kind: "webgpu") {
-    if(kind !== "webgpu") throw new TypeError("Hostframe supports only the webgpu context");
-    return this.#context;
-  }
-
-  on(kind: "render", listener: WindowListeners["render"]): () => void;
-  on(kind: "event", listener: WindowListeners["event"]): () => void;
-  on(kind: keyof WindowListeners, listener: WindowListeners[keyof WindowListeners]) {
-    if(kind === "render") {
-      const render = listener as WindowListeners["render"];
-      this.#renderListeners.add(render);
-      return () => this.#renderListeners.delete(render);
-    }
-    this.#eventListeners.add(listener);
-    return () => this.#eventListeners.delete(listener);
-  }
-
-  close() {
-    if(this.#closed) return;
-    if(this.#frame) {
-      this.#closing = true;
-      return;
-    }
-    this.#closed = true;
-    this.#native.close();
-  }
-
-  /** @internal */
-  step() {
-    if(this.#closed) return;
-    for(const nativeEvent of this.#native.poll()) {
-      const event = decodeEvent(nativeEvent);
-      for(const listener of Array.from(this.#eventListeners)) listener(event);
-      if(event.kind === "close") this.close();
-      if(this.#closed) return;
-    }
-    if(!this.#device || this.#renderListeners.size === 0) return;
-    const texture = this.#native.acquire(this.#device) as GPUTexture | null;
-    if(!texture) return;
-    this.#frame = texture;
-    try {
-      try {
-        for(const listener of Array.from(this.#renderListeners)) {
-          if(listener() !== undefined) throw new TypeError("Render callbacks must return undefined synchronously");
-        }
-      } catch (error) {
-        this.#native.discardFrame();
-        throw error;
-      }
-      this.#native.present();
-    } finally {
-      this.#frame = undefined;
-      if(this.#closing) this.close();
-    }
-  }
+/** @internal Creates a public window with its application-owned controller. */
+export function createWindow(native: NativeWindow, onDisposed: (window: Window) => void, isApplicationRunning: () => boolean) {
+  const window = new Window(native, onDisposed, isApplicationRunning);
+  return { window, controller: controllers.get(window)! };
 }
 
-function decodeEvent({ kind, values, text }: NativeEvent): WindowEvent {
-  const [first, second, third, fourth] = values;
-  switch(kind) {
-    case "close": return { kind };
-    case "resize": return { kind, width: first, height: second };
-    case "focus": return { kind, focused: Boolean(first) };
-    case "key": return { kind, key: first, scancode: second, action: third, modifiers: fourth };
-    case "text": return { kind, text: text ?? "" };
-    case "pointerButton": return { kind, button: first, action: second, modifiers: third };
-    case "pointerMove":
-    case "scroll": return { kind, x: first, y: second };
-    default: throw new Error(`Unexpected native window event: ${kind}`);
+/** @internal Returns the application-owned controller for integration tests and Application. */
+export function getWindowController(window: Window) {
+  const controller = controllers.get(window);
+  if(!controller) throw new Error("Window has no controller");
+  return controller;
+}
+
+/** A native window owned by its Application. Dispose before destroying its device. */
+export class Window {
+  #native: NativeWindow;
+  #onDisposed: ((window: Window) => void) | undefined;
+  #listeners = new InputListeners();
+  #input!: InputState;
+  #context: ReturnType<typeof createWindowGPUContext> | undefined;
+  #renderListeners = new Subscriptions<RenderEvent>("render", "a window");
+  #renderEvent!: RenderEvent;
+  #active!: () => boolean;
+  #render: () => undefined;
+  #isApplicationRunning: () => boolean;
+  #inputCommands: InputCommand[] | undefined;
+
+  /** @internal Created by Application.createWindow. */
+  constructor(native: NativeWindow, onDisposed?: (window: Window) => void, isApplicationRunning = () => false) {
+    this.#native = native;
+    this.#onDisposed = onDisposed;
+    this.#isApplicationRunning = isApplicationRunning;
+    this.#render = this.#emitRender.bind(this);
+    controllers.set(this, {
+      dispatchInput: () => this.#dispatchInput(),
+      dispatchRender: (event, active) => this.#dispatchRender(event, active)
+    });
+    this.#dispatchInput();
+  }
+
+  get presentMode() { return this.#native.presentMode; }
+  get shouldClose() { return this.#native.shouldClose; }
+
+  /** Immutable polled state, also updated by capture/close commands. Safe in input/render callbacks. */
+  get input() {
+    this.#requireAlive();
+    return this.#input;
+  }
+
+  /** Atomic client screen units, framebuffer pixels, and platform content scale from the last batch. */
+  get metrics() { return this.input.metrics; }
+
+  /** Polled native content position (screen units), visibility, and minimization. */
+  get status() { return this.input.status; }
+
+  /** Runtime controls are immediate, guarded native mutations. Observe results on the next poll. */
+  setTitle(title: string) { this.#native.setTitle(title); }
+  setSize(width: number, height: number) { this.#native.setSize(width, height); }
+  setPosition(x: number, y: number) { this.#native.setPosition(x, y); }
+  setVisible(visible: boolean) { this.#native.setVisible(visible); }
+
+  /** Continuous pixel coordinates; undefined while non-drawable. Does not clamp or round. */
+  toFramebuffer(x: number, y: number) {
+    const metrics = this.metrics;
+    if(!Number.isFinite(x) || !Number.isFinite(y)) throw new TypeError("Coordinates must be finite");
+    if(!metrics.drawable) return undefined;
+    return { x: x * metrics.framebufferWidth / metrics.width, y: y * metrics.framebufferHeight / metrics.height };
+  }
+
+  isKeyDown(key: number) { return this.input.keys.includes(key); }
+  isScancodeDown(scancode: number) { return this.input.scancodes.includes(scancode); }
+  isButtonDown(button: number) { return this.input.buttons.includes(button); }
+
+  on<Event extends keyof WindowEvents>(event: Event, listener: (event: WindowEvents[Event]) => undefined) {
+    this.#requireAlive();
+    if(event === "render") {
+      return this.#renderListeners.add(listener as (event: RenderEvent) => undefined);
+    }
+    return this.#listeners.on(event as keyof WindowInputEvents, listener as (event: WindowInputEvents[keyof WindowInputEvents]) => undefined);
+  }
+
+  getContext(type: "webgpu") {
+    this.#requireAlive();
+    if(type !== "webgpu") throw new TypeError("Only the webgpu context is supported");
+    this.#context ??= createWindowGPUContext(this.#native, this.#isApplicationRunning);
+    return this.#context.context;
+  }
+
+  #dispatchRender(event: RenderEvent, active: () => boolean) {
+    if(this.#native.disposed || this.#native.shouldClose || !this.#renderListeners.size) return;
+    this.#renderEvent = event;
+    this.#active = active;
+    this.#context?.controller.render(this.#render);
+  }
+
+  #emitRender() {
+    this.#renderListeners.snapshot()(this.#renderEvent, this.#active);
+    return undefined;
+  }
+
+  /** Hidden virtual pointer motion. In input listeners, applied after the successful batch. */
+  setPointerCapture(captured: boolean, rawMotion = false) {
+    if(this.#inputCommands) {
+      if(typeof captured !== "boolean" || typeof rawMotion !== "boolean") throw new TypeError("Pointer capture arguments must be booleans");
+      this.#inputCommands.push({ type: "capture", captured, rawMotion });
+      return;
+    }
+    this.#input = freezeInput({ ...this.#native.setPointerCapture(captured, rawMotion), metrics: this.#input.metrics });
+  }
+
+  /** Force-close without closeRequest. In input/lifecycle listeners, applies after a successful batch. */
+  requestClose() {
+    if(this.#inputCommands) {
+      this.#inputCommands.push({ type: "close" });
+      return;
+    }
+    this.#input = freezeInput({ ...this.#native.requestClose(), metrics: this.#input.metrics });
+  }
+
+  dispose() {
+    try {
+      this.#native.dispose();
+    } finally {
+      if(this.#native.disposed) {
+        this.#listeners.clear();
+        this.#renderListeners.clear();
+        this.#context?.controller.release();
+        this.#context = undefined;
+        this.#onDisposed?.(this);
+        this.#onDisposed = undefined;
+      }
+    }
+  }
+
+  #dispatchInput() {
+    if(this.#native.disposed) return;
+    const commands: InputCommand[] = [];
+    this.#native.dispatchInput((state, events) => {
+      this.#input = freezeInput(state);
+      this.#inputCommands = commands;
+      try {
+        this.#listeners.dispatch(events, () => { commands.push({ type: "close" }); });
+      } finally {
+        this.#inputCommands = undefined;
+      }
+    });
+    // Native dispatch must return successfully, releasing ApplicationOperation,
+    // before any commands run. A listener/native failure drops this local queue.
+    // No JavaScript listener is invoked while applying commands; resulting native
+    // notifications stay queued until the next poll, with no recursive dispatch.
+    for(const command of commands) {
+      if(command.type === "close") {
+        this.requestClose();
+        break;
+      }
+      this.setPointerCapture(command.captured, command.rawMotion);
+    }
+  }
+
+  #requireAlive() {
+    if(this.#native.disposed) throw new Error("Window is disposed");
   }
 }
