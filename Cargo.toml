@@ -1,0 +1,19 @@
+[package]
+name = "hostframe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+path = "native/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+glfw = { version = "0.63", default-features = false, features = ["src-build", "x11", "native-handles", "raw-window-handle-v0-6"] }
+libc = "0.2"
+napi = { version = "3", default-features = false, features = ["napi8"] }
+napi-derive = "3"
+
+[build-dependencies]
+bindgen = "0.72"
+napi-build = "2"

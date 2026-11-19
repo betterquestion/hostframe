@@ -2,6 +2,20 @@
 
 This directory is the starting point for the Rust Hostframe pilot. The [original Hostframe repository](https://github.com/jacl38/hostframe) is the reference for its public TypeScript API, native behavior, and integration tests. [Hostframe discussion #46](https://github.com/jacl38/hostframe/discussions/46) records the design decision behind the split.
 
+## Build and test the pilot
+
+On Linux x86-64 with glibc, install Rust with Cargo, Node, Bun, a C compiler, CMake, libclang, and the X11 development libraries for GLFW (X11, Xrandr, Xinerama, Xcursor, Xi, and XKB). The integration test also uses Xvfb, xauth, xdotool, ImageMagick's `import`, and Mesa's software Vulkan driver.
+
+```sh
+bun install --frozen-lockfile
+bun run lint
+bun run test
+```
+
+The build verifies the Dawn archive before extracting its headers and addon. Set `HOSTFRAME_DAWN_ARCHIVE` if your copy is outside the sibling checkout path described below. Use `bun run build` to build without running the integration test.
+
+The TypeScript entry point exports `Application`. Create a window, call `window.getContext("webgpu")`, and use that context's adapter to create the device you pass to `configure`. The pilot supports one device per window and the RGBA8 and BGRA8 surface formats, including their sRGB variants when supported by the surface. Subscribe with `window.on("render", callback)`, read the current texture during the synchronous callback, and call `await app.run()` to poll and render until the windows close. The `event` subscription reports framebuffer resize, focus, key, text, and pointer events. Call `app.dispose()` before destroying the device.
+
 ## Original Hostframe
 
 Hostframe lets TypeScript applications render into native desktop windows on Node and Bun. The JavaScript API exposes an application, windows, input and render events, and a canvas-like WebGPU context. Renderers such as Three.js use Dawn's JavaScript WebGPU objects to create resources, encode commands, and submit work. Hostframe acquires the window's current texture before the render callback and presents it afterward. [Original README](https://github.com/jacl38/hostframe/blob/master/README.md)
@@ -36,6 +50,8 @@ The packaging workflow passed in Nektos Act and on GitHub's Ubuntu 24.04 runner.
 The artifact is in a private repository and follows GitHub Actions artifact retention. A verified local copy is available at `../hostframe-dawn/build/hosted-artifacts/44427264780/hostframe-dawn-linux-x64.tar.gz`.
 
 ## First Rust milestones
+
+The Linux integration test covers the first two milestones in Node and Bun. It also exercises a resize, keyboard and text input, and recovery after a render callback throws.
 
 1. Pin the Linux artifact by SHA-256. Build a small Rust Node-API addon that resolves the table from the already-loaded `dawn.node`, negotiates ABI v1, and acquires and releases instance and device handles in Node and Bun.
 2. Port the X11 presentation fixture to Rust. Use `WGPUSurfaceSourceXlibWindow` with a window on Xvfb, clear the acquired texture from JavaScript, check the presented pixels, and verify cleanup before closing the display. [Reference C++ fixture](https://github.com/jacl38/hostframe-dawn/blob/main/test/x11-surface.cpp) · [JavaScript test](https://github.com/jacl38/hostframe-dawn/blob/main/test/surface.cjs)

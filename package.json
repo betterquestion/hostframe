@@ -1,0 +1,23 @@
+{
+  "name": "hostframe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "bun scripts/setup.ts && napi build --target x86_64-unknown-linux-gnu --platform --no-js --output-dir build/native --dts native.d.ts && tsc",
+    "lint": "oxlint",
+    "test": "bun run build && bun scripts/test.ts"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.10.12",
+    "@stylistic/eslint-plugin": "^6.0.1",
+    "@types/node": "^26.6.6",
+    "oxlint": "^1.94.0",
+    "typescript": "6"
+  },
+  "napi": {
+    "binaryName": "hostframe"
+  }
+}
