@@ -1,6 +1,6 @@
 {
   "name": "hostframe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Native desktop WebGPU applications for Node.js and Bun.",
   "license": "Apache-2.0",
   "repository": {
