@@ -21,15 +21,33 @@ On the first build, setup downloads the pinned Dawn archive from its public rele
 
 For an offline first build, set `HOSTFRAME_DAWN_ARCHIVE` to an absolute or repository-relative path to a copy of the pinned archive. If a previous build extracted an older archive, remove `packages/core-native/build/dawn` before rebuilding. Use `bun run build` to build without running the integration tests.
 
-To create a Linux x64 glibc tarball, run `bun pm pack` from `packages/core`. The package includes the compiled TypeScript API, the Hostframe addon, and the pinned Dawn binary with its notices.
+To create a Linux x64 glibc tarball, run `bun pm pack` from `packages/core`. Packing builds the Hostframe addon with Cargo’s release profile and includes the compiled TypeScript API, the pinned Dawn binary, and license notices for the native code.
 
 The TypeScript entry point exposes the original Hostframe application, window and WebGPU context methods. Use `app.run(options)` for scheduled rendering and fixed updates, or pair `app.pollEvents()` with `context.draw()` for a caller-owned loop. Windows report named input and lifecycle events, immutable metrics and held-input snapshots, and cancelable native close requests. Call `app.dispose()` before destroying caller-owned GPU devices. [Application loop](https://github.com/jacl38/hostframe/blob/master/docs/application-loop.md) · [Window input](https://github.com/jacl38/hostframe/blob/master/docs/window-input.md) · [Window lifecycle](https://github.com/jacl38/hostframe/blob/master/docs/window-lifecycle.md) · [WebGPU context](https://github.com/jacl38/hostframe/blob/master/docs/window-context.md)
 
 The core suite runs in Node and Bun. It uses a fake clock for scheduling and plain WebGPU for readback, pixel checks, and frame lifetime. The X11 tests use Xvfb and a small fixture for window-manager events. The forced timeout checks build a separate test-only addon. Run `bun run test:cleanup-timeout` to run only those checks.
 
-[Linux CI](.github/workflows/linux-ci.yml) runs lint and the core suite, then installs the packed `hostframe` tarball in a fresh project and creates a WebGPU device in both Node and Bun.
+[Linux CI](.github/workflows/linux-ci.yml) runs lint and the core suite, then installs the packed `hostframe` tarball in a fresh project. It creates a WebGPU device in both Node and Bun and checks the TypeScript declarations with and without the DOM library.
 
 The pinned Dawn bridge validates device ownership and loss synchronously before Hostframe replaces a canvas configuration. A device from another Dawn instance or a device destroyed in the same JavaScript turn leaves the existing configuration usable.
+
+## Release to npm
+
+After testing and committing your changes, run a release command from `main`:
+
+```sh
+bun run release hostframe patch
+bun run release hostframe minor
+bun run release hostframe major
+```
+
+Each command bumps the named package's version, commits the updated manifest and lockfile, and pushes `main` with the release tag. CI tests and packs the tagged source, then publishes the tested tarball to npm's `latest` tag. Use `stable` to release the current base version without another bump and `--dry-run` to see the version before committing. The package argument defaults to `hostframe`; once adapters exist, name the adapter to release it independently.
+
+Run `bun run release hostframe next` from a branch to publish a preview under npm's `next` tag. Use `bun run release hostframe minor --next` to bump the base version first. CI adds a suffix such as `-next.42` to the version. To release the preview as stable, merge the work into `main` and run `bun run release hostframe stable`.
+
+For automatic previews, set the GitHub Actions repository variable `NPM_PREVIEW_BRANCH` to the branch you choose. Pushes to that branch publish previews for the public packages. Release commands still work from other branches.
+
+For each npm package, configure a [trusted publisher](https://docs.npmjs.com/trusted-publishers/) for `betterquestion/hostframe`, workflow `linux-ci.yml`, and environment `npm-publish`, with direct publishing enabled. The command follows the run if the GitHub CLI is signed in locally. The [Actions page](https://github.com/betterquestion/hostframe/actions/workflows/linux-ci.yml) also shows the outcome.
 
 ## Original Hostframe
 
