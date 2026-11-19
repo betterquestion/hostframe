@@ -22,7 +22,9 @@ Set `HOSTFRAME_DAWN_ARCHIVE` if you saved the same archive elsewhere. If a previ
 
 The TypeScript entry point exposes the original Hostframe application, window and WebGPU context methods. Use `app.run(options)` for scheduled rendering and fixed updates, or pair `app.pollEvents()` with `context.draw()` for a caller-owned loop. Windows report named input and lifecycle events, immutable metrics and held-input snapshots, and cancelable native close requests. Call `app.dispose()` before destroying caller-owned GPU devices. [Application loop](https://github.com/jacl38/hostframe/blob/master/docs/application-loop.md) · [Window input](https://github.com/jacl38/hostframe/blob/master/docs/window-input.md) · [Window lifecycle](https://github.com/jacl38/hostframe/blob/master/docs/window-lifecycle.md) · [WebGPU context](https://github.com/jacl38/hostframe/blob/master/docs/window-context.md)
 
-Run `bun run test:materials` with the original examples and their dependencies installed in the sibling `ts-dawn` checkout. Pass the checkout path as an argument to use a different location. The runner copies the examples into a temporary directory and points their index imports at the Rust build. Run `bun run test:cleanup-timeout` with the same checkout to exercise all four forced cleanup paths with a separate test-only addon.
+The core suite runs in Node and Bun. It uses a fake clock for scheduling and plain WebGPU for readback, pixel checks, and frame lifetime. The X11 tests use Xvfb and a small fixture for window-manager events. The forced timeout checks build a separate test-only addon. Run `bun run test:cleanup-timeout` to run only those checks.
+
+The optional `bun run test:materials` migration check uses the original examples and their dependencies from the sibling `ts-dawn` checkout. Pass the checkout path as an argument to use a different location.
 
 The pinned Dawn bridge validates device ownership and loss synchronously before Hostframe replaces a canvas configuration. A device from another Dawn instance or a device destroyed in the same JavaScript turn leaves the existing configuration usable.
 
@@ -61,7 +63,7 @@ The artifact is in a private repository and follows GitHub Actions artifact rete
 
 ## First Rust milestones
 
-The Linux integration test covers the first two milestones in Node and Bun. It also exercises a resize, keyboard and text input, and recovery after a render callback throws.
+The Linux core suite verifies bridge negotiation, pixel output, resize, input delivery, frame recovery, and cleanup in Node and Bun. The optional materials check exercises the existing Three.js scene.
 
 1. Pin the Linux artifact by SHA-256. Build a small Rust Node-API addon that resolves the table from the already-loaded `dawn.node`, negotiates ABI v1, and acquires and releases instance and device handles in Node and Bun.
 2. Port the X11 presentation fixture to Rust. Use `WGPUSurfaceSourceXlibWindow` with a window on Xvfb, clear the acquired texture from JavaScript, check the presented pixels, and verify cleanup before closing the display. [Reference C++ fixture](https://github.com/jacl38/hostframe-dawn/blob/main/test/x11-surface.cpp) · [JavaScript test](https://github.com/jacl38/hostframe-dawn/blob/main/test/surface.cjs)
