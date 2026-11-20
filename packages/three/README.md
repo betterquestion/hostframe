@@ -52,4 +52,6 @@ try {
 
 Hostframe drives the render loop. Update the Three.js camera when the window changes size, as shown above. Dispose the adapter before the application, then destroy its device.
 
+`@hostframe/three` also works with React Three Fiber. See the [React Three Fiber example](examples/react-three-fiber.tsx), tested with `@react-three/fiber` 10.0.0-alpha.6 and Three.js 0.187.0.
+
 The adapter integrates Three.js's WebGPU renderer with a native window. Browser-dependent features, such as DOM controls and image loaders, may not be supported.
