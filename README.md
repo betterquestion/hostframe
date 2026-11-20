@@ -18,6 +18,8 @@ See the [package README](packages/core/README.md) for a working example.
 - [Input inspector](examples/input-inspector.ts): keyboard, text, pointer, scroll, and polled state.
 - [Pointer capture](examples/pointer-capture.ts): capture and release relative pointer motion.
 - [WebGPU triangle](examples/triangle.ts): request a presentation-compatible adapter, clear a surface, and draw.
+- [TypeGPU](examples/typegpu.ts): use a Hostframe device with TypeGPU shaders and a render pipeline.
+- [webgpu-utils](examples/webgpu-utils.ts): create vertex buffers and layouts for a Hostframe window.
 
 Hostframe exposes `app.gpu` (also exported as `gpu`) for the usual GPU entry point. WebGPU constants and constructors can be imported from `hostframe/globals`, or installed on `globalThis` with `installWebGPUGlobals()` when a library expects them. Window presentation uses `window.getContext("webgpu")` and its `requestAdapter()` method.
 

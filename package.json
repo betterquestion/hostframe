@@ -14,7 +14,9 @@
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^6.0.1",
+    "hostframe": "workspace:*",
     "oxlint": "^1.94.0",
-    "hostframe": "workspace:*"
+    "typegpu": "^0.12.10",
+    "webgpu-utils": "^2.1.1"
   }
 }
