@@ -97,6 +97,10 @@ export class Window {
   setPosition(x: number, y: number) {
     this.#native.setPosition(x, y);
   }
+  /** Switch to the primary monitor's fullscreen mode, or restore the previous window bounds. */
+  setFullscreen(fullscreen: boolean) {
+    this.#native.setFullscreen(fullscreen);
+  }
   setVisible(visible: boolean) {
     this.#native.setVisible(visible);
   }

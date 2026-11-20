@@ -90,6 +90,11 @@ impl NativeWindow {
     }
 
     #[napi]
+    pub fn set_fullscreen(&self, fullscreen: bool) -> Result<()> {
+        self.open_state()?.window.set_fullscreen(fullscreen)
+    }
+
+    #[napi]
     pub fn set_visible(&self, visible: bool) -> Result<()> {
         self.open_state()?.window.control(|window| {
             if visible {

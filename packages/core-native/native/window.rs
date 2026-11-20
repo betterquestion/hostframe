@@ -168,6 +168,7 @@ pub struct Window {
     position: (f64, f64),
     baseline: bool,
     closed: bool,
+    windowed_bounds: Option<(i32, i32, i32, i32)>,
 }
 
 pub fn require_main_thread() -> Result<()> {
@@ -227,6 +228,7 @@ impl Window {
             position,
             baseline: true,
             closed: false,
+            windowed_bounds: None,
         })
     }
 
@@ -359,6 +361,64 @@ impl Window {
         let (error, description) = glfw::get_error_string();
         if error != glfw::Error::NoError {
             return Err(Error::from_reason(description));
+        }
+        Ok(())
+    }
+
+    pub fn set_fullscreen(&mut self, fullscreen: bool) -> Result<()> {
+        if self.closed {
+            return Err(Error::from_reason("Window is closed"));
+        }
+        if fullscreen == self.windowed_bounds.is_some() {
+            return Ok(());
+        }
+        glfw::get_error();
+        let ptr = glfw::Context::window_ptr(&*self.handle);
+        if fullscreen {
+            let monitor = unsafe { glfw::ffi::glfwGetPrimaryMonitor() };
+            if monitor.is_null() {
+                return Err(Error::from_reason("No primary monitor available"));
+            }
+            let mode = unsafe { glfw::ffi::glfwGetVideoMode(monitor) };
+            if mode.is_null() {
+                return Err(Error::from_reason("No monitor video mode available"));
+            }
+            let (x, y) = self.handle.get_pos();
+            let (width, height) = self.handle.get_size();
+            let mode = unsafe { &*mode };
+            unsafe {
+                glfw::ffi::glfwSetWindowMonitor(
+                    ptr,
+                    monitor,
+                    0,
+                    0,
+                    mode.width,
+                    mode.height,
+                    mode.refreshRate,
+                )
+            };
+            let (error, description) = glfw::get_error_string();
+            if error != glfw::Error::NoError {
+                return Err(Error::from_reason(description));
+            }
+            self.windowed_bounds = Some((x, y, width, height));
+        } else if let Some((x, y, width, height)) = self.windowed_bounds {
+            unsafe {
+                glfw::ffi::glfwSetWindowMonitor(
+                    ptr,
+                    std::ptr::null_mut(),
+                    x,
+                    y,
+                    width,
+                    height,
+                    glfw::ffi::GLFW_DONT_CARE,
+                )
+            };
+            let (error, description) = glfw::get_error_string();
+            if error != glfw::Error::NoError {
+                return Err(Error::from_reason(description));
+            }
+            self.windowed_bounds = None;
         }
         Ok(())
     }

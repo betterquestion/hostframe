@@ -60,3 +60,5 @@ try {
 `app.run()` polls events and renders until the window closes. Render callbacks are synchronous; the current texture is valid only during the callback. Dispose the application before destroying its device.
 
 Use `window.on()` for input and lifecycle events, `app.on("fixedUpdate", ...)` for fixed-step updates, or `app.pollEvents()` and `context.draw()` for your own loop. See the [source and development documentation](https://github.com/betterquestion/hostframe).
+
+A window can enter the primary monitor’s fullscreen mode with `window.setFullscreen(true)`. Call `window.setFullscreen(false)` to restore its previous position and size. Metrics update on the next poll.

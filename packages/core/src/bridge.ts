@@ -344,6 +344,13 @@ export class NativeWindow {
     });
   }
 
+  setFullscreen(fullscreen: boolean) {
+    this.#guard("setFullscreen", () => {
+      requireBoolean(fullscreen, "fullscreen");
+      this.#handle.setFullscreen(fullscreen);
+    });
+  }
+
   setVisible(visible: boolean) {
     this.#guard("setVisible", () => {
       requireBoolean(visible, "visible");

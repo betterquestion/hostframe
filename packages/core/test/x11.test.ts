@@ -105,6 +105,14 @@ test("two windows isolate native input, geometry, presentation and close", async
     assert.equal(second.metrics.framebufferWidth, 64);
     await waitFor(() => pixelsAreMagenta(firstId, 96, 72), "the resized 96×72 frame");
 
+    first.setFullscreen(true);
+    first.setFullscreen(true);
+    await waitFor(() => first.metrics.width === 1280 && first.metrics.height === 1024, "fullscreen dimensions");
+    first.setFullscreen(false);
+    first.setFullscreen(false);
+    await waitFor(() => first.metrics.width === 96 && first.metrics.height === 72 && first.status.x === 50 && first.status.y === 60, "restored window bounds");
+    assert.throws(() => first.setFullscreen(1 as unknown as boolean), /fullscreen/);
+
     const transitions = [];
 
     first.on("minimize", event => {
