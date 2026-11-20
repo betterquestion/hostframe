@@ -119,8 +119,8 @@ async function pack() {
     if(pkg.name === "hostframe") {
       await $`bun run --cwd ${pkg.directory} test`;
       await checkCorePackage(pkg);
-    } else if(pkg.name === "@hostframe/three") {
-      await checkThreePackage(pkg);
+    } else if(pkg.name === "@hostframe/three" || pkg.name === "@hostframe/vgpu") {
+      await checkAdapterPackage(pkg);
     } else {
       throw new Error(`No release validation configured for ${pkg.name}`);
     }
@@ -148,9 +148,9 @@ async function checkCorePackage(core: ReleasePackage) {
   }
 }
 
-async function checkThreePackage(pkg: ReleasePackage) {
-  const staging = await mkdtemp(join(tmpdir(), "hostframe-three-release-"));
-  const consumer = await mkdtemp(join(tmpdir(), "hostframe-three-consumer-"));
+async function checkAdapterPackage(pkg: ReleasePackage) {
+  const staging = await mkdtemp(join(tmpdir(), "hostframe-adapter-release-"));
+  const consumer = await mkdtemp(join(tmpdir(), "hostframe-adapter-consumer-"));
   const archive = resolve(archivePath(pkg.name));
 
   try {
@@ -180,10 +180,22 @@ async function checkThreePackage(pkg: ReleasePackage) {
     await verifyArchive(pkg, archive);
     await createConsumer(consumer);
     await $`npm install --ignore-scripts --no-audit --no-fund ${archive}`.cwd(consumer);
+    if(pkg.name === "@hostframe/vgpu") {
+      const wgsl = devDependencies?.["@vgpu/wgsl"];
+
+      if(!wgsl) {
+        throw new Error(`${pkg.name} must declare its shader test dependency`);
+      }
+
+      await $`npm install --ignore-scripts --no-save --no-audit --no-fund ${`@vgpu/wgsl@${wgsl}`}`.cwd(consumer);
+    }
+
     await cp(join(pkg.directory, "test"), join(consumer, "test"), { recursive: true });
     await cp(join(pkg.directory, "scripts", "test.ts"), join(consumer, "test-runner.ts"));
     await $`bun test-runner.ts`.cwd(consumer);
-    await $`bun run --cwd ${pkg.directory} scripts/compatibility.ts ${archive}`;
+    if(pkg.name === "@hostframe/three") {
+      await $`bun run --cwd ${pkg.directory} scripts/compatibility.ts ${archive}`;
+    }
   } finally {
     await rm(staging, { recursive: true, force: true });
     await rm(consumer, { recursive: true, force: true });

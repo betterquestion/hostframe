@@ -1,6 +1,6 @@
 import { Application, installWebGPUGlobals } from "hostframe";
 import { effect, frame } from "vgpu";
-import { createVgpuSurface } from "../src/index.ts";
+import { createVgpuSurface } from "@hostframe/vgpu";
 import { prepareShader } from "@vgpu/wgsl/prepare";
 import { strict as assert } from "node:assert";
 installWebGPUGlobals();
