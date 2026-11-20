@@ -8,6 +8,8 @@ npm install hostframe
 
 See the [package README](packages/core/README.md) for a working example.
 
+For Three.js, see the separate [`@hostframe/three` adapter](packages/three/README.md).
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)

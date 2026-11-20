@@ -1,0 +1,32 @@
+{
+  "name": "@hostframe/three",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md",
+    "examples/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "bun run build && bun scripts/test.ts",
+    "prepack": "bun run build"
+  },
+  "peerDependencies": {
+    "hostframe": "^0.1.2",
+    "three": "~0.187.0"
+  },
+  "devDependencies": {
+    "hostframe": "workspace:*",
+    "three": "~0.187.0",
+    "typescript": "^6.0.0"
+  },
+  "dependencies": {
+    "@types/three": "~0.187.0"
+  }
+}
