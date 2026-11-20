@@ -23,7 +23,7 @@ See the [package README](packages/core/README.md) for a working example.
 
 Hostframe exposes `app.gpu` (also exported as `gpu`) for the usual GPU entry point. WebGPU constants and constructors can be imported from `hostframe/globals`, or installed on `globalThis` with `installWebGPUGlobals()` when a library expects them. Window presentation uses `window.getContext("webgpu")` and its `requestAdapter()` method.
 
-For Three.js, see the separate [`@hostframe/three` adapter](packages/three/README.md).
+For Three.js and vgpu, see the [`@hostframe/three`](packages/three/README.md) and [`@hostframe/vgpu`](packages/vgpu/README.md) adapters.
 
 ## Documentation
 

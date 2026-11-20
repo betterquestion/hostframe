@@ -7,10 +7,10 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "bun run --cwd packages/core build && bun run --cwd packages/three build",
+    "build": "bun run --cwd packages/core build && bun run --cwd packages/three build && bun run --cwd packages/vgpu build",
     "lint": "oxlint",
     "release": "bun scripts/release/cli.ts",
-    "test": "bun run --cwd packages/core test && bun run --cwd packages/three test"
+    "test": "bun run --cwd packages/core test && bun run --cwd packages/three test && bun run --cwd packages/vgpu test"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^6.0.1",

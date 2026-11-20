@@ -1,0 +1,35 @@
+{
+  "name": "@hostframe/vgpu",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/betterquestion/hostframe.git",
+    "directory": "packages/vgpu"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md",
+    "examples/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "bun run build && bun scripts/test.ts",
+    "prepack": "bun run build"
+  },
+  "peerDependencies": {
+    "hostframe": "^0.1.2",
+    "vgpu": "^0.6.0"
+  },
+  "devDependencies": {
+    "hostframe": "workspace:*",
+    "vgpu": "^0.6.0",
+    "typescript": "^6.0.0",
+    "@vgpu/wgsl": "0.6.0"
+  }
+}
