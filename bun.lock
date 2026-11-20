@@ -6,6 +6,7 @@
       "name": "hostframe-workspace",
       "devDependencies": {
         "@stylistic/eslint-plugin": "^6.0.1",
+        "hostframe": "workspace:*",
         "oxlint": "^1.94.0",
       },
     },
