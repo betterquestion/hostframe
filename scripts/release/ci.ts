@@ -1,5 +1,5 @@
 import { $ } from "bun";
-import { appendFile, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { appendFile, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { archiveIntegrity, archivePath, artifactDirectory, planFile } from "./artifacts.ts";
@@ -73,7 +73,9 @@ async function prepare() {
   await mkdir(artifactDirectory, { recursive: true });
   await Bun.write(planFile, JSON.stringify(plan));
   if(process.env.GITHUB_OUTPUT) {
-    await appendFile(process.env.GITHUB_OUTPUT, `publish=${plan.packages.length > 0}\n`);
+    const core = !plan.packages.length || plan.packages.some(pkg => pkg.name === "hostframe");
+
+    await appendFile(process.env.GITHUB_OUTPUT, `publish=${plan.packages.length > 0}\ncore=${core}\n`);
   }
 }
 
@@ -97,9 +99,16 @@ async function preparePreview(plan: ReleasePlan, pkg: ReleasePackage) {
 async function pack() {
   const plan = await Bun.file(planFile).json() as ReleasePlan;
   const packages = await publicPackages();
-  const core = getPackage(packages, "hostframe");
 
-  await checkPackage(core, core);
+  // Ordinary CI retains the packed core consumer check. Release tags validate
+  // only the packages named by the release plan.
+  if(!plan.packages.length) {
+    const core = getPackage(packages, "hostframe");
+
+    await checkCorePackage(core);
+    await rm(archivePath(core.name));
+  }
+
   for(const release of plan.packages) {
     const pkg = getPackage(packages, release.name);
 
@@ -107,55 +116,93 @@ async function pack() {
       throw new Error(`Version changed after preparing ${release.name}`);
     }
 
-    if(pkg.name !== core.name) {
+    if(pkg.name === "hostframe") {
       await $`bun run --cwd ${pkg.directory} test`;
-      await checkPackage(pkg, core);
+      await checkCorePackage(pkg);
+    } else if(pkg.name === "@hostframe/three") {
+      await checkThreePackage(pkg);
+    } else {
+      throw new Error(`No release validation configured for ${pkg.name}`);
     }
 
     release.integrity = await archiveIntegrity(archivePath(pkg.name));
     console.log(`Prepared ${pkg.name}@${release.version} for npm ${release.channel}`);
   }
 
-  if(!plan.packages.some(pkg => pkg.name === core.name)) {
-    await rm(archivePath(core.name));
-  }
-
   await Bun.write(planFile, JSON.stringify(plan));
 }
 
-async function checkPackage(pkg: ReleasePackage, core: ReleasePackage) {
+async function checkCorePackage(core: ReleasePackage) {
+  const archive = resolve(archivePath(core.name));
+
+  await $`bun pm --cwd ${core.directory} pack --filename ${archive}`;
+  await verifyArchive(core, archive);
+  const consumer = await mkdtemp(join(tmpdir(), "hostframe-package-"));
+
+  try {
+    await createConsumer(consumer);
+    await $`npm install --ignore-scripts --no-audit --no-fund ${archive}`.cwd(consumer);
+    await checkCoreTypesAndRuntime(core, consumer);
+  } finally {
+    await rm(consumer, { recursive: true, force: true });
+  }
+}
+
+async function checkThreePackage(pkg: ReleasePackage) {
+  const staging = await mkdtemp(join(tmpdir(), "hostframe-three-release-"));
+  const consumer = await mkdtemp(join(tmpdir(), "hostframe-three-consumer-"));
   const archive = resolve(archivePath(pkg.name));
 
-  await $`bun pm --cwd ${pkg.directory} pack --filename ${archive}`;
+  try {
+    // Avoid workspace links: npm resolves the adapter's declared peers from
+    // the registry, including the released hostframe version.
+    const manifest = { ...pkg.manifest };
+    const devDependencies = pkg.manifest.devDependencies as Record<string, string> | undefined;
+    const typescript = devDependencies?.typescript;
+
+    if(!typescript) {
+      throw new Error(`${pkg.name} must declare its TypeScript build version`);
+    }
+
+    delete manifest.devDependencies;
+    delete manifest.scripts;
+    await Bun.write(join(staging, "package.json"), JSON.stringify(manifest));
+    await cp(join(pkg.directory, "src"), join(staging, "src"), { recursive: true });
+    await cp(join(pkg.directory, "tsconfig.json"), join(staging, "tsconfig.json"));
+    await cp(join(pkg.directory, "README.md"), join(staging, "README.md"));
+    await cp(join(pkg.directory, "examples"), join(staging, "examples"), { recursive: true });
+    await $`npm install --ignore-scripts --no-save --no-audit --no-fund ${`typescript@${typescript}`}`.cwd(staging);
+    await $`./node_modules/.bin/tsc`.cwd(staging);
+    // Development-only workspace links are not meaningful to consumers.
+    manifest.scripts = pkg.manifest.scripts;
+    await Bun.write(join(staging, "package.json"), JSON.stringify(manifest, null, 2));
+    await $`bun pm --cwd ${staging} pack --ignore-scripts --filename ${archive}`;
+    await verifyArchive(pkg, archive);
+    await createConsumer(consumer);
+    await $`npm install --ignore-scripts --no-audit --no-fund ${archive}`.cwd(consumer);
+    await cp(join(pkg.directory, "test"), join(consumer, "test"), { recursive: true });
+    await cp(join(pkg.directory, "scripts", "test.ts"), join(consumer, "test-runner.ts"));
+    await $`bun test-runner.ts`.cwd(consumer);
+  } finally {
+    await rm(staging, { recursive: true, force: true });
+    await rm(consumer, { recursive: true, force: true });
+  }
+}
+
+async function verifyArchive(pkg: ReleasePackage, archive: string) {
   const packed = await $`tar -xOf ${archive} package/package.json`.json();
 
   if(packed.name !== pkg.name || packed.version !== pkg.version) {
     throw new Error(`Unexpected package in ${archive}`);
   }
+}
 
-  const consumer = await mkdtemp(join(tmpdir(), "hostframe-package-"));
-
-  try {
-    await Bun.write(join(consumer, "package.json"), JSON.stringify({
-      name: "hostframe-package-smoke",
-      private: true,
-      type: "module"
-    }));
-    const packages = [archive];
-    const peers = pkg.manifest.peerDependencies as Record<string, string> | undefined;
-    const coreRange = peers?.[core.name];
-
-    if(pkg.name !== core.name && coreRange && Bun.semver.satisfies(core.version, coreRange)) {
-      packages.unshift(resolve(archivePath(core.name)));
-    }
-
-    await $`npm install --ignore-scripts --no-audit --no-fund ${packages}`.cwd(consumer);
-    if(pkg.name === core.name) {
-      await checkCoreTypesAndRuntime(core, consumer);
-    }
-  } finally {
-    await rm(consumer, { recursive: true, force: true });
-  }
+async function createConsumer(directory: string) {
+  await Bun.write(join(directory, "package.json"), JSON.stringify({
+    name: "hostframe-package-smoke",
+    private: true,
+    type: "module"
+  }));
 }
 
 async function checkCoreTypesAndRuntime(core: ReleasePackage, consumer: string) {
