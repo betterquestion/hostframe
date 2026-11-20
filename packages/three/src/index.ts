@@ -52,12 +52,10 @@ export async function createThreeRenderer(window: Window, options: { antialias?:
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
       alphaMode: "opaque"
     });
-    await renderer.init();
-    // Three's internal scheduler updates its node frame even in a caller-owned loop.
-    // This private integration point is why the Three peer version is constrained.
-    const animation = (renderer as unknown as { _animation: { setContext(value: object): void } })._animation;
-
-    animation.setContext({
+    // Three r186 and earlier start scheduling inside init(), before it resolves.
+    // Intercept the renderer's own animation assignment so each renderer gets
+    // its scheduler before start(), without changing process-wide globals.
+    const scheduler = {
       requestAnimationFrame(callback: (time: number) => void) {
         nextFrame = callback;
 
@@ -66,7 +64,36 @@ export async function createThreeRenderer(window: Window, options: { antialias?:
       cancelAnimationFrame() {
         nextFrame = undefined;
       }
+    };
+    const internals = renderer as unknown as { _animation: { setContext(value: object): void } | null };
+    const descriptor = Object.getOwnPropertyDescriptor(renderer, "_animation");
+    let animation = internals._animation;
+
+    if(!descriptor || !descriptor.configurable || !Object.hasOwn(descriptor, "value")) {
+      throw new Error("Unsupported Three.js animation initialization");
+    }
+
+    Object.defineProperty(renderer, "_animation", {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get() {
+        return animation;
+      },
+      set(value: typeof animation) {
+        animation = value;
+        value?.setContext(scheduler);
+      }
     });
+    try {
+      await renderer.init();
+    } finally {
+      Object.defineProperty(renderer, "_animation", { ...descriptor, value: animation });
+    }
+
+    if(!animation) {
+      throw new Error("Three.js did not initialize its animation scheduler");
+    }
+
     renderer.setSize(canvas.width, canvas.height, false);
     renderer.getContext();
     unsubscribeRender = window.on("render", () => {

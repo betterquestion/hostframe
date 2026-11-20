@@ -28,7 +28,7 @@
       "name": "@hostframe/three",
       "version": "0.1.0",
       "dependencies": {
-        "@types/three": "~0.187.0",
+        "@types/three": ">=0.183.0 <0.188.0",
       },
       "devDependencies": {
         "hostframe": "workspace:*",
@@ -37,7 +37,7 @@
       },
       "peerDependencies": {
         "hostframe": "^0.1.2",
-        "three": "~0.187.0",
+        "three": ">=0.183.0 <0.188.0",
       },
     },
   },

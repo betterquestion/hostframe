@@ -8,8 +8,10 @@ if(!env.VK_DRIVER_FILES && !env.VK_ICD_FILENAMES && existsSync(software)) {
   env.VK_DRIVER_FILES = software;
 }
 
-for(const test of ["test/render.ts", "test/resize.ts"]) {
-  const result = spawnSync("xvfb-run", ["-a", "-n", "200", "-s", "-screen 0 1280x1024x24 -nolisten tcp -noreset -ac", "bun", test], { env, stdio: "inherit" });
+const runtime = process.env.HOSTFRAME_TEST_RUNTIME ?? "bun";
+
+for(const test of ["test/render.ts", "test/resize.ts", "test/multiple.ts"]) {
+  const result = spawnSync("xvfb-run", ["-a", "-n", "200", "-s", "-screen 0 1280x1024x24 -nolisten tcp -noreset -ac", runtime, test], { env, stdio: "inherit" });
 
   if(result.error) {
     throw result.error;

@@ -183,6 +183,7 @@ async function checkThreePackage(pkg: ReleasePackage) {
     await cp(join(pkg.directory, "test"), join(consumer, "test"), { recursive: true });
     await cp(join(pkg.directory, "scripts", "test.ts"), join(consumer, "test-runner.ts"));
     await $`bun test-runner.ts`.cwd(consumer);
+    await $`bun run --cwd ${pkg.directory} scripts/compatibility.ts ${archive}`;
   } finally {
     await rm(staging, { recursive: true, force: true });
     await rm(consumer, { recursive: true, force: true });

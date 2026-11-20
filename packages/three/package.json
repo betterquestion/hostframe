@@ -20,11 +20,12 @@
   "scripts": {
     "build": "tsc",
     "test": "bun run build && bun scripts/test.ts",
-    "prepack": "bun run build"
+    "prepack": "bun run build",
+    "test:compat": "bun run build && bun scripts/compatibility.ts"
   },
   "peerDependencies": {
     "hostframe": "^0.1.2",
-    "three": "~0.187.0"
+    "three": ">=0.183.0 <0.188.0"
   },
   "devDependencies": {
     "hostframe": "workspace:*",
@@ -32,6 +33,6 @@
     "typescript": "^6.0.0"
   },
   "dependencies": {
-    "@types/three": "~0.187.0"
+    "@types/three": ">=0.183.0 <0.188.0"
   }
 }

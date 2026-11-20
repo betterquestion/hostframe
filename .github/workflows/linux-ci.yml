@@ -77,6 +77,10 @@ jobs:
         if: steps.prepare.outputs.publish != 'true'
         run: bun run test
 
+      - name: Test Three.js compatibility
+        if: steps.prepare.outputs.publish != 'true'
+        run: bun run --cwd packages/three test:compat
+
       - name: Build and verify npm tarballs
         run: bun scripts/release/ci.ts pack
 
